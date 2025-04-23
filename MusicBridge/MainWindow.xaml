@@ -1,0 +1,59 @@
+<Window x:Class="MusicBridge.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MusicBridge"
+        mc:Ignorable="d"
+        Title="音乐桥接器 (嵌入版)" Height="600" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- 控制区域 -->
+            <RowDefinition Height="*"/>    <!-- 嵌入区域 -->
+            <RowDefinition Height="Auto"/> <!-- 状态栏 -->
+        </Grid.RowDefinitions>
+
+        <!-- 控制区域 -->
+        <StackPanel Grid.Row="0" Orientation="Vertical" Margin="5">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="选择播放器:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <!-- 下拉框选择播放器 -->
+                <ComboBox x:Name="MusicAppComboBox" Width="150" SelectionChanged="MusicAppComboBox_SelectionChanged"/>
+                <!-- 启动并嵌入按钮 -->
+                <Button x:Name="LaunchAndEmbedButton" Content="启动并嵌入" Margin="10,0,0,0" Click="LaunchAndEmbedButton_Click"/>
+                <!-- 分离窗口按钮 -->
+                <Button x:Name="DetachButton" Content="分离窗口" Margin="10,0,0,0" Click="DetachButton_Click" IsEnabled="False"/>
+                <!-- 关闭嵌入应用按钮 -->
+                <Button x:Name="CloseEmbeddedAppButton" Content="关闭嵌入的应用" Margin="10,0,0,0" Click="CloseEmbeddedAppButton_Click" IsEnabled="False"/>
+            </StackPanel>
+            <!-- 媒体控制按钮 -->
+            <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                <Button x:Name="PreviousButton" Content="上一曲" Margin="0,0,5,0" Click="PreviousButton_Click" IsEnabled="False"/>
+                <Button x:Name="PlayPauseButton" Content="播放/暂停" Margin="0,0,5,0" Click="PlayPauseButton_Click" IsEnabled="False"/>
+                <Button x:Name="NextButton" Content="下一曲" Margin="0,0,5,0" Click="NextButton_Click" IsEnabled="False"/>
+                <Button x:Name="VolumeDownButton" Content="音量 -" Margin="10,0,5,0" Click="VolumeDownButton_Click" IsEnabled="False"/>
+                <Button x:Name="MuteButton" Content="静音" Margin="0,0,5,0" Click="MuteButton_Click" IsEnabled="False"/>
+                <Button x:Name="VolumeUpButton" Content="音量 +" Margin="0,0,5,0" Click="VolumeUpButton_Click" IsEnabled="False"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 嵌入区域 -->
+        <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1" Margin="5">
+            <!-- 使用自定义的 AppHost 控件来承载外部窗口 -->
+            <local:AppHost x:Name="AppHostControl"/>
+        </Border>
+
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <!-- 显示当前歌曲 -->
+                <TextBlock x:Name="CurrentSongTextBlock" Text="歌曲: 无"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <!-- 显示当前状态 -->
+                <TextBlock x:Name="CurrentStatusTextBlock" Text="状态: 未连接"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>
