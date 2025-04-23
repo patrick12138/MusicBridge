@@ -1,11 +1,11 @@
 using System.Diagnostics;
-using System.IO; // 需要 System.IO 来处理路径和文件检查
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
-using Microsoft.Win32; // 用于注册表查找
+using Microsoft.Win32;
 
 namespace MusicBridge
 {
