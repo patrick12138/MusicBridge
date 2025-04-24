@@ -1,74 +1,129 @@
 using MusicBridge.Controllers;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Threading;
 
 namespace MusicBridge.Utils
 {
     /// <summary>
-    /// Handles media control operations for music applications
+    /// 处理音乐播放器媒体控制操作
     /// </summary>
     public class MediaPlayerHandler
     {
         private readonly Dispatcher _dispatcher;
         private readonly Action<string> _updateStatus;
-        
+
         /// <summary>
-        /// Creates a new instance of MediaPlayerHandler
+        /// 创建 MediaPlayerHandler 实例
         /// </summary>
-        /// <param name="dispatcher">UI dispatcher for threading</param>
-        /// <param name="updateStatus">Action to update status messages</param>
         public MediaPlayerHandler(Dispatcher dispatcher, Action<string> updateStatus)
         {
             _dispatcher = dispatcher;
             _updateStatus = updateStatus;
         }
-        
-        /// <summary>
-        /// Sends a media command to the specified window
-        /// </summary>
-        public async Task SendMediaCommandAsync(IMusicAppController controller, IntPtr targetHwnd, MediaCommand command)
-        {
-            if (controller == null) return;
 
-            if (targetHwnd == IntPtr.Zero || !WinAPI.IsWindow(targetHwnd))
+        /// <summary>
+        /// 向指定窗口发送媒体控制命令
+        /// </summary>
+        public async Task<bool> SendMediaCommandAsync(IMusicAppController controller, IntPtr hwnd, MediaCommand command)
+        {
+            if (controller == null || hwnd == IntPtr.Zero)
             {
-                _updateStatus($"无法找到 {controller.Name} 的窗口来发送命令 {command}。");
-                return;
+                _updateStatus("错误：无效的控制器或窗口句柄");
+                return false;
             }
 
             try
             {
-                // 调用控制器的 SendCommandAsync，传递目标 HWND
-                await controller.SendCommandAsync(targetHwnd, command);
-                // 命令发送后，稍作等待
-                await Task.Delay(150);
+                // 使用正确的接口方法 SendCommandAsync 而不是 SendMediaCommand
+                await controller.SendCommandAsync(hwnd, command);
+                
+                // 根据命令类型更新状态消息
+                string actionText = GetCommandActionText(command);
+                _updateStatus($"已向 {controller.Name} 发送{actionText}命令");
+                
+                return true;
             }
             catch (Exception ex)
             {
-                _updateStatus($"发送命令 {command} 时出错: {ex.Message}");
-                Debug.WriteLine($"[SendMediaCommandAsync] Error: {ex}");
+                Debug.WriteLine($"[MediaPlayerHandler.SendMediaCommandAsync] 错误: {ex}");
+                _updateStatus($"发送媒体命令时出错: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 根据命令类型获取对应的操作文本
+        /// </summary>
+        private string GetCommandActionText(MediaCommand command)
+        {
+            switch (command)
+            {
+                case MediaCommand.PlayPause: return "播放/暂停";
+                case MediaCommand.NextTrack: return "下一曲";
+                case MediaCommand.PreviousTrack: return "上一曲";
+                case MediaCommand.VolumeUp: return "音量增加";
+                case MediaCommand.VolumeDown: return "音量减少";
+                case MediaCommand.VolumeMute: return "静音";
+                default: return "未知";
             }
         }
         
         /// <summary>
-        /// Closes the currently embedded application
+        /// 关闭音乐应用
         /// </summary>
-        public void CloseEmbeddedApp(IntPtr windowHandle)
+        public bool CloseApp(IMusicAppController controller)
         {
-            if (windowHandle != IntPtr.Zero && WinAPI.IsWindow(windowHandle))
+            if (controller == null)
             {
-                try
+                _updateStatus("错误：无效的控制器");
+                return false;
+            }
+            
+            try
+            {
+                // 查找所有匹配的进程
+                var processes = Process.GetProcessesByName(controller.ProcessName);
+                if (processes.Length == 0)
                 {
-                    // 发送关闭消息
-                    WinAPI.SendMessage(windowHandle, WinAPI.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                    _updateStatus($"{controller.Name} 未运行");
+                    return false;
                 }
-                catch (Exception ex)
+                
+                // 尝试关闭所有匹配的进程
+                foreach (var process in processes)
                 {
-                    Debug.WriteLine($"关闭嵌入窗口时发生错误: {ex.Message}");
+                    try
+                    {
+                        process.CloseMainWindow();
+                        // 如果进程没有在合理时间内退出，则强制终止
+                        if (!process.WaitForExit(3000))
+                        {
+                            process.Kill();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[MediaPlayerHandler.CloseApp] 关闭进程错误: {ex}");
+                    }
+                    finally
+                    {
+                        process.Dispose();
+                    }
                 }
+                
+                _updateStatus($"已关闭 {controller.Name}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MediaPlayerHandler.CloseApp] 错误: {ex}");
+                _updateStatus($"关闭 {controller.Name} 时出错: {ex.Message}");
+                return false;
             }
         }
     }

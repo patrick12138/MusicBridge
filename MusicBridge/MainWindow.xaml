@@ -6,127 +6,154 @@
         xmlns:local="clr-namespace:MusicBridge"
         xmlns:utils="clr-namespace:MusicBridge.Utils"
         mc:Ignorable="d"
-        Title="音乐桥接器 (嵌入版)" Height="600" Width="800">
+        Title="堂会启动器" Height="600" Width="800"
+        FocusVisualStyle="{x:Null}">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- 应用选择区域 -->
-            <RowDefinition Height="Auto"/> <!-- 控制区域 -->
-            <RowDefinition Height="*"/>    <!-- 嵌入区域 -->
-            <RowDefinition Height="Auto"/> <!-- 状态栏 -->
+            <RowDefinition Height="*"/>        <!-- 嵌入区域 (最大化) -->
+            <RowDefinition Height="Auto"/>     <!-- 控制栏 (底部) -->
+            <RowDefinition Height="Auto"/>     <!-- 状态栏 -->
         </Grid.RowDefinitions>
 
-        <!-- 应用选择区域 - 图标形式 -->
-        <Border Grid.Row="0" BorderBrush="LightGray" BorderThickness="0,0,0,1" Margin="5">
-            <WrapPanel Orientation="Horizontal" Margin="5">
-                <!-- QQ音乐图标按钮 -->
-                <Border x:Name="QQMusicIcon" Width="80" Height="80" Margin="5" Background="Transparent" 
-                       MouseDown="AppIcon_MouseDown" Tag="0" ToolTip="QQ音乐">
-                    <StackPanel>
-                        <Border Width="50" Height="50" Background="#1E90FF" CornerRadius="10">
-                            <TextBlock Text="QQ" FontSize="24" FontWeight="Bold" 
-                                      HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White"/>
-                        </Border>
-                        <TextBlock Text="QQ音乐" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-                    </StackPanel>
-                </Border>
-                
-                <!-- 网易云音乐图标按钮 -->
-                <Border x:Name="NeteaseMusicIcon" Width="80" Height="80" Margin="5" Background="Transparent"
-                       MouseDown="AppIcon_MouseDown" Tag="1" ToolTip="网易云音乐">
-                    <StackPanel>
-                        <Border Width="50" Height="50" Background="#D81E06" CornerRadius="10">
-                            <TextBlock Text="网易" FontSize="20" FontWeight="Bold" 
-                                      HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White"/>
-                        </Border>
-                        <TextBlock Text="网易云音乐" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-                    </StackPanel>
-                </Border>
-                
-                <!-- 酷狗音乐图标按钮 -->
-                <Border x:Name="KugouMusicIcon" Width="80" Height="80" Margin="5" Background="Transparent"
-                       MouseDown="AppIcon_MouseDown" Tag="2" ToolTip="酷狗音乐">
-                    <StackPanel>
-                        <Border Width="50" Height="50" Background="#0C73C2" CornerRadius="10">
-                            <TextBlock Text="酷狗" FontSize="20" FontWeight="Bold" 
-                                      HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White"/>
-                        </Border>
-                        <TextBlock Text="酷狗音乐" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-                    </StackPanel>
-                </Border>
-                
-                <!-- 可以在此添加更多音乐应用图标 -->
-            </WrapPanel>
-        </Border>
-
-        <!-- 控制区域 -->
-        <Grid Grid.Row="1" Margin="5">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            
-            <!-- 左侧：媒体控制按钮 -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,5,0,0">
-                <Button x:Name="PreviousButton" Content="上一曲" Margin="0,0,5,0" Click="PreviousButton_Click" IsEnabled="False"/>
-                <Button x:Name="PlayPauseButton" Content="播放/暂停" Margin="0,0,5,0" Click="PlayPauseButton_Click" IsEnabled="False"/>
-                <Button x:Name="NextButton" Content="下一曲" Margin="0,0,5,0" Click="NextButton_Click" IsEnabled="False"/>
-                <Button x:Name="VolumeDownButton" Content="音量 -" Margin="10,0,5,0" Click="VolumeDownButton_Click" IsEnabled="False"/>
-                <Button x:Name="MuteButton" Content="静音" Margin="0,0,5,0" Click="MuteButton_Click" IsEnabled="False"/>
-                <Button x:Name="VolumeUpButton" Content="音量 +" Margin="0,0,5,0" Click="VolumeUpButton_Click" IsEnabled="False"/>
-            </StackPanel>
-            
-            <!-- 右侧：搜索和操作按钮 -->
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button x:Name="OpenKeyboardButton" Click="OpenKeyboardButton_Click" 
-                        Margin="0,0,5,0" Padding="10,3" VerticalAlignment="Center"
-                        ToolTip="打开虚拟键盘，直接搜索嵌入的音乐应用">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="搜索" Margin="0,0,5,0"/>
-                        <TextBlock Text="⌨" FontSize="14" FontWeight="Bold"/>
-                    </StackPanel>
-                </Button>
-                
-                <!-- 关闭当前应用按钮（X按钮） -->
-                <Button x:Name="CloseAppButton" Content="X" Width="30" Height="30" 
-                        Background="Red" Foreground="White" FontWeight="Bold"
-                        Click="CloseAppButton_Click" IsEnabled="False"
-                        ToolTip="关闭当前音乐应用"/>
-            </StackPanel>
-        </Grid>
-
-        <!-- 嵌入区域 -->
-        <Border Grid.Row="2" BorderBrush="Gray" BorderThickness="1" Margin="5">
+        <!-- 嵌入区域 (最大化) -->
+        <Border Grid.Row="0" BorderBrush="#E0E0E0" BorderThickness="1" Margin="5,5,5,0" CornerRadius="5">
             <Grid>
                 <!-- 使用自定义的 AppHost 控件来承载外部窗口 -->
                 <local:AppHost x:Name="AppHostControl"/>
                 
                 <!-- 操作区域叠加层，当无应用嵌入时显示 -->
-                <Border x:Name="OperationOverlay" Background="#FAFAFA" Visibility="Visible">
+                <Border x:Name="OperationOverlay" Background="#FAFAFA" CornerRadius="5" Visibility="Visible">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <TextBlock Text="请选择上方的音乐应用图标" FontSize="18" Margin="0,0,0,20" HorizontalAlignment="Center"/>
-                        <Button x:Name="LaunchAndEmbedButton" Content="启动并嵌入" Padding="15,5" Click="LaunchAndEmbedButton_Click" IsEnabled="False"/>
-                        <Button x:Name="DetachButton" Content="分离窗口" Padding="15,5" Margin="0,10,0,0" Click="DetachButton_Click" IsEnabled="False"/>
+                        <TextBlock Text="请选择下方的音乐应用图标" FontSize="16" Margin="0,0,0,15" HorizontalAlignment="Center"/>
+                        <Button x:Name="LaunchAndEmbedButton" Content="启动并嵌入" Padding="15,8" 
+                                Background="#1E90FF" Foreground="White" BorderThickness="0" 
+                                Click="LaunchAndEmbedButton_Click" IsEnabled="False">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="4"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+                        <Button x:Name="DetachButton" Content="分离窗口" Padding="15,8" Margin="0,10,0,0" 
+                                Background="#E0E0E0" BorderThickness="0" 
+                                Click="DetachButton_Click" IsEnabled="False">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="4"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
                     </StackPanel>
                 </Border>
             </Grid>
         </Border>
 
-        <!-- 状态栏 -->
-        <StatusBar Grid.Row="3">
-            <StatusBarItem>
-                <!-- 显示当前歌曲 -->
-                <TextBlock x:Name="CurrentSongTextBlock" Text="歌曲: 无"/>
+        <!-- 控制栏 (底部紧凑布局) -->
+        <Grid Grid.Row="1" Margin="5,2,5,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/> <!-- 应用选择图标 -->
+                <ColumnDefinition Width="*"/>    <!-- 媒体控制按钮 -->
+                <ColumnDefinition Width="Auto"/> <!-- 功能按钮 -->
+            </Grid.ColumnDefinitions>
+            
+            <!-- 应用选择图标 - 缩小后的图标 -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
+                <!-- QQ音乐图标 -->
+                <Border x:Name="QQMusicIcon" Width="36" Height="36" CornerRadius="18" Margin="2,0"
+                       MouseDown="AppIcon_MouseDown" Tag="0" ToolTip="QQ音乐" Cursor="Hand"
+                       Focusable="False" BorderThickness="2" BorderBrush="Transparent">
+                    <Border Width="28" Height="28" Background="#43BB68" CornerRadius="14" Focusable="False">
+                        <TextBlock Text="QQ" FontSize="12" FontWeight="Bold" 
+                                  HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White"/>
+                    </Border>
+                </Border>
+                
+                <!-- 网易云音乐图标 -->
+                <Border x:Name="NeteaseMusicIcon" Width="36" Height="36" CornerRadius="18" Margin="2,0"
+                       MouseDown="AppIcon_MouseDown" Tag="1" ToolTip="网易云音乐" Cursor="Hand"
+                       Focusable="False" BorderThickness="2" BorderBrush="Transparent">
+                    <Border Width="28" Height="28" Background="#D81E06" CornerRadius="14" Focusable="False">
+                        <TextBlock Text="网易" FontSize="11" FontWeight="Bold" 
+                                  HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White"/>
+                    </Border>
+                </Border>
+                
+                <!-- 酷狗音乐图标 -->
+                <Border x:Name="KugouMusicIcon" Width="36" Height="36" CornerRadius="18" Margin="2,0"
+                       MouseDown="AppIcon_MouseDown" Tag="2" ToolTip="酷狗音乐" Cursor="Hand"
+                       Focusable="False" BorderThickness="2" BorderBrush="Transparent">
+                    <Border Width="28" Height="28" Background="#0C73C2" CornerRadius="14" Focusable="False">
+                        <TextBlock Text="酷狗" FontSize="11" FontWeight="Bold" 
+                                  HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White"/>
+                    </Border>
+                </Border>
+            </StackPanel>
+            
+            <!-- 媒体控制按钮区 -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2">
+                <!-- 媒体控制按钮 -->
+                <Button x:Name="PreviousButton" Style="{StaticResource IconButtonStyle}" Width="32" Height="32"
+                        Click="PreviousButton_Click" IsEnabled="False" ToolTip="上一曲" Margin="1">
+                    <Path Data="{StaticResource PreviousIcon}" Fill="#444444" Stretch="Uniform" Width="12" Height="12"/>
+                </Button>
+                
+                <Button x:Name="PlayPauseButton" Style="{StaticResource IconButtonStyle}" Width="32" Height="32"
+                        Click="PlayPauseButton_Click" IsEnabled="False" ToolTip="播放/暂停" Margin="1">
+                    <Path Data="{StaticResource PlayIcon}" Fill="#444444" Stretch="Uniform" Width="12" Height="12"/>
+                </Button>
+                
+                <Button x:Name="NextButton" Style="{StaticResource IconButtonStyle}" Width="32" Height="32"
+                        Click="NextButton_Click" IsEnabled="False" ToolTip="下一曲" Margin="1">
+                    <Path Data="{StaticResource NextIcon}" Fill="#444444" Stretch="Uniform" Width="12" Height="12"/>
+                </Button>
+                
+                <Separator Margin="5,0" Width="1" Height="20" VerticalAlignment="Center" Background="#E0E0E0" />
+                
+                <Button x:Name="VolumeDownButton" Style="{StaticResource IconButtonStyle}" Width="32" Height="32"
+                        Click="VolumeDownButton_Click" IsEnabled="False" ToolTip="音量减" Margin="1">
+                    <Path Data="{StaticResource VolumeDownIcon}" Fill="#444444" Stretch="Uniform" Width="12" Height="12"/>
+                </Button>
+                
+                <Button x:Name="MuteButton" Style="{StaticResource IconButtonStyle}" Width="32" Height="32"
+                        Click="MuteButton_Click" IsEnabled="False" ToolTip="静音" Margin="1">
+                    <Path Data="{StaticResource MuteIcon}" Fill="#444444" Stretch="Uniform" Width="12" Height="12"/>
+                </Button>
+                
+                <Button x:Name="VolumeUpButton" Style="{StaticResource IconButtonStyle}" Width="32" Height="32"
+                        Click="VolumeUpButton_Click" IsEnabled="False" ToolTip="音量加" Margin="1">
+                    <Path Data="{StaticResource VolumeUpIcon}" Fill="#444444" Stretch="Uniform" Width="12" Height="12"/>
+                </Button>
+            </StackPanel>
+            
+            <!-- 功能按钮区 -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
+                <Button x:Name="OpenKeyboardButton" Style="{StaticResource IconButtonStyle}" Width="34" Height="34"
+                        Click="OpenKeyboardButton_Click" ToolTip="搜索歌曲" Margin="1" Background="#F0F8FF">
+                    <Path Data="{StaticResource SearchIcon}" Fill="#1E90FF" Stretch="Uniform" Width="18" Height="18"/>
+                </Button>
+                
+                <Button x:Name="CloseAppButton" Style="{StaticResource IconButtonStyle}" Width="34" Height="34"
+                        Background="#FFEBEE" Click="CloseAppButton_Click" IsEnabled="False" 
+                        ToolTip="关闭当前音乐应用" Margin="1">
+                    <Path Data="{StaticResource CloseIcon}" Fill="#E53935" Stretch="Uniform" Width="18" Height="18"/>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- 状态栏 (紧凑化) -->
+        <StatusBar Grid.Row="2" Height="25" Background="#F5F5F5">
+            <StatusBarItem Height="18">
+                <TextBlock x:Name="CurrentSongTextBlock" Text="歌曲: 无" FontSize="11"/>
             </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
-                <!-- 显示当前状态 -->
-                <TextBlock x:Name="CurrentStatusTextBlock" Text="状态: 未连接"/>
+            <Separator Width="1" Height="12"/>
+            <StatusBarItem Height="18">
+                <TextBlock x:Name="CurrentStatusTextBlock" Text="状态: 未连接" FontSize="11"/>
             </StatusBarItem>
         </StatusBar>
         
         <!-- 虚拟键盘弹出窗口 -->
-        <Popup x:Name="KeyboardPopup" PlacementTarget="{Binding ElementName=SearchTextBox}" 
-               Placement="Bottom" StaysOpen="False" 
+        <Popup x:Name="KeyboardPopup" PlacementTarget="{Binding ElementName=OpenKeyboardButton}" 
+               Placement="Top" StaysOpen="False" 
                Width="700" Height="380" 
                HorizontalOffset="-200">
             <utils:VirtualKeyboard x:Name="VirtualKeyboardControl" />

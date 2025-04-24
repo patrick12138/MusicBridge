@@ -15,14 +15,13 @@ namespace MusicBridge
         private IMusicAppController? currentController; // 当前选中的控制器
         private readonly List<IMusicAppController> controllers = new List<IMusicAppController>(); // 所有控制器
         private readonly DispatcherTimer statusTimer = new DispatcherTimer(); // 状态刷新定时器
-        private int _selectedAppIndex = -1; // 当前选中的应用索引
-        private int _selectedAppTypeIndex = -1; // 当前选中的应用类型索引
 
         // 辅助类实例
         private readonly WindowEmbedManager _windowEmbedManager;
         private readonly MediaPlayerHandler _mediaPlayerHandler;
         private readonly SearchManager _searchManager;
         private readonly UIStateManager _uiStateManager;
+        private readonly AppIconSelector _appIconSelector;
 
         // 构造函数
         public MainWindow()
@@ -58,6 +57,12 @@ namespace MusicBridge
             _searchManager = new SearchManager(
                 Dispatcher,
                 _uiStateManager.UpdateStatus);
+                
+            // 初始化应用图标选择器
+            _appIconSelector = new AppIconSelector();
+            _appIconSelector.RegisterAppIcon(QQMusicIcon);
+            _appIconSelector.RegisterAppIcon(NeteaseMusicIcon);
+            _appIconSelector.RegisterAppIcon(KugouMusicIcon);
 
             // --- 初始化控制器列表 ---
             try
@@ -150,7 +155,8 @@ namespace MusicBridge
                 return; 
             }
 
-            SetInteractionButtonsEnabled(false, false, false); // 禁用交互按钮
+            // 禁用交互按钮
+            SetInteractionButtonsEnabled(false, false, false); 
 
             // 执行启动和嵌入操作
             bool success = await _windowEmbedManager.LaunchAndEmbedAsync(currentController);
@@ -305,19 +311,6 @@ namespace MusicBridge
             CloseAppButton.IsEnabled = isRunning;
         }
 
-        // 已移除的方法，保留为空方法以避免XAML绑定错误
-        private void SearchTextBox_GotFocus(object sender, RoutedEventArgs e)
-        {
-            // 此方法保留为空，以防XAML中仍有事件绑定引用它
-        }
-        
-        // 已移除的方法，保留为空方法以避免XAML绑定错误
-        private void SearchButton_Click(object sender, RoutedEventArgs e)
-        {
-            // 直接调用OpenKeyboardButton_Click，实现相同功能
-            OpenKeyboardButton_Click(sender, e);
-        }
-
         // 打开虚拟键盘按钮点击事件
         private void OpenKeyboardButton_Click(object sender, RoutedEventArgs e)
         {
@@ -366,12 +359,21 @@ namespace MusicBridge
         }
 
         // AppIcon_MouseDown事件 - 处理音乐应用图标点击
-        private void AppIcon_MouseDown(object sender, MouseButtonEventArgs e)
+        private async void AppIcon_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is FrameworkElement element && int.TryParse(element.Tag?.ToString(), out int appIndex))
             {
-                // 保存当前选择的应用类型索引
-                _selectedAppTypeIndex = appIndex;
+                // 如果已有嵌入窗口并且点击了不同的应用图标，先关闭当前应用
+                if (_windowEmbedManager.IsWindowEmbedded && 
+                    currentController != null && 
+                    controllers[appIndex] != currentController)
+                {
+                    // 关闭当前运行的应用
+                    await CloseCurrentAppAsync();
+                }
+                
+                // 更新选中图标状态
+                _appIconSelector.SelectAppIcon(appIndex);
                 
                 // 更新当前控制器
                 currentController = controllers[appIndex];
@@ -380,7 +382,7 @@ namespace MusicBridge
                 _uiStateManager.UpdateStatus($"已选择 {GetAppNameByIndex(appIndex)}，请点击启动按钮");
                 
                 // 刷新状态以更新按钮
-                RefreshMusicAppStatusAsync();
+                await RefreshMusicAppStatusAsync();
             }
         }
         
@@ -396,24 +398,41 @@ namespace MusicBridge
             }
         }
         
-        // CloseAppButton_Click事件 - 处理关闭当前音乐应用按钮点击
-        private void CloseAppButton_Click(object sender, RoutedEventArgs e)
+        // 关闭当前应用 - 新增的辅助方法
+        private async Task CloseCurrentAppAsync()
         {
-            // 关闭当前嵌入的应用
-            if (_windowEmbedManager.IsWindowEmbedded)
+            if (currentController == null || !_windowEmbedManager.IsWindowEmbedded)
+                return;
+                
+            // 先分离窗口
+            _windowEmbedManager.DetachEmbeddedWindow();
+            
+            // 查找进程并关闭
+            if (currentController.IsRunning())
             {
-                _mediaPlayerHandler.CloseEmbeddedApp(_windowEmbedManager.EmbeddedWindowHandle);
-                _windowEmbedManager.DetachEmbeddedWindow();
+                _mediaPlayerHandler.CloseApp(currentController);
+                
+                // 更新状态
+                _uiStateManager.UpdateStatus($"已关闭 {currentController.Name}");
+                
+                // 等待进程真正关闭
+                await Task.Delay(500);
             }
+        }
+        
+        // CloseAppButton_Click事件 - 处理关闭当前音乐应用按钮点击
+        private async void CloseAppButton_Click(object sender, RoutedEventArgs e)
+        {
+            await CloseCurrentAppAsync();
+            
+            // 清除当前图标选择
+            _appIconSelector.ClearSelection();
             
             // 重置当前控制器
             currentController = null;
             
             // 更新UI状态
-            _uiStateManager.UpdateUIStateForNoController();
-            
-            // 更新状态
-            _uiStateManager.UpdateStatus("已关闭音乐应用");
+            await _uiStateManager.UpdateUIStateForNoController();
         }
     }
 }

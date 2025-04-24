@@ -471,5 +471,19 @@ namespace MusicBridge
         
         [DllImport("user32.dll")]
         public static extern int GetSystemMetrics(int nIndex);
+
+        // 添加 SetForegroundWindow 函数声明
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+        
+        // 向指定窗口发送按键序列
+        public static void SendKeys(IntPtr hWnd, string keys)
+        {
+            // 确保窗口处于前台
+            SetForegroundWindow(hWnd);
+            System.Threading.Thread.Sleep(100); // 给系统一点时间响应
+           
+        }
     }
 }
