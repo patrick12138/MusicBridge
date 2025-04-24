@@ -12,7 +12,6 @@ namespace MusicBridge
 {
     public partial class MainWindow : Window
     {
-        private IMusicAppController? currentController; // 当前选中的控制器
         private readonly List<IMusicAppController> controllers = new List<IMusicAppController>(); // 所有控制器
         private readonly DispatcherTimer statusTimer = new DispatcherTimer(); // 状态刷新定时器
 
@@ -22,6 +21,7 @@ namespace MusicBridge
         private readonly SearchManager _searchManager;
         private readonly UIStateManager _uiStateManager;
         private readonly AppIconSelector _appIconSelector;
+        private readonly AppSwitchManager _appSwitchManager; // 新增：应用切换管理器
 
         // 构造函数
         public MainWindow()
@@ -33,7 +33,7 @@ namespace MusicBridge
                 Dispatcher,
                 CurrentStatusTextBlock,
                 CurrentSongTextBlock,
-                LaunchAndEmbedButton,
+                null, // 移除了启动并嵌入按钮
                 DetachButton,
                 CloseAppButton,
                 PlayPauseButton,
@@ -44,6 +44,9 @@ namespace MusicBridge
                 MuteButton,
                 OperationOverlay,
                 AppHostControl);
+                
+            // 设置重新嵌入按钮引用
+            _uiStateManager.SetReEmbedButton(ReEmbedButton);
 
             _windowEmbedManager = new WindowEmbedManager(
                 Dispatcher,
@@ -63,6 +66,13 @@ namespace MusicBridge
             _appIconSelector.RegisterAppIcon(QQMusicIcon);
             _appIconSelector.RegisterAppIcon(NeteaseMusicIcon);
             _appIconSelector.RegisterAppIcon(KugouMusicIcon);
+            
+            // 初始化应用切换管理器
+            _appSwitchManager = new AppSwitchManager(
+                Dispatcher,
+                _uiStateManager.UpdateStatus,
+                _windowEmbedManager,
+                _mediaPlayerHandler);
 
             // --- 初始化控制器列表 ---
             try
@@ -113,7 +123,8 @@ namespace MusicBridge
             }
             await Task.WhenAll(tasks);
             Debug.WriteLine("所有控制器路径查找完成。");
-            // 路径查找完成后，重新刷新一次状态，可能启动按钮现在可用了
+            
+            // 路径查找完成后，重新刷新一次状态
             await RefreshMusicAppStatusAsync();
         }
 
@@ -146,25 +157,6 @@ namespace MusicBridge
             }
         }
 
-        // "启动并嵌入"按钮点击
-        private async void LaunchAndEmbedButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (currentController == null) 
-            { 
-                _uiStateManager.UpdateStatus("请先选择播放器"); 
-                return; 
-            }
-
-            // 禁用交互按钮
-            SetInteractionButtonsEnabled(false, false, false); 
-
-            // 执行启动和嵌入操作
-            bool success = await _windowEmbedManager.LaunchAndEmbedAsync(currentController);
-            
-            // 完成后刷新状态
-            await RefreshMusicAppStatusAsync();
-        }
-
         // "分离窗口"按钮点击
         private void DetachButton_Click(object sender, RoutedEventArgs e)
         {
@@ -184,6 +176,7 @@ namespace MusicBridge
         // 封装发送命令逻辑
         private async Task SendMediaCommandAsync(MediaCommand command)
         {
+            var currentController = _appSwitchManager.CurrentController;
             if (currentController == null) return;
 
             // 确定目标窗口：优先使用嵌入的窗口句柄，否则查找主窗口
@@ -221,6 +214,7 @@ namespace MusicBridge
         // 刷新音乐应用状态 (异步)
         private async Task RefreshMusicAppStatusAsync()
         {
+            var currentController = _appSwitchManager.CurrentController;
             if (currentController == null)
             {
                 await _uiStateManager.UpdateUIStateForNoController();
@@ -290,34 +284,13 @@ namespace MusicBridge
             }
         }
 
-        // 设置交互按钮状态
-        private void SetInteractionButtonsEnabled(bool controllerSelected, bool isEmbedded, bool isRunning)
-        {
-            if (!Dispatcher.CheckAccess()) 
-            { 
-                Dispatcher.InvokeAsync(() => SetInteractionButtonsEnabled(controllerSelected, isEmbedded, isRunning)); 
-                return; 
-            }
-
-            // 启动/嵌入按钮：需要选中控制器，当前未嵌入，且控制器路径有效
-            bool canLaunchEmbed = controllerSelected && !isEmbedded && currentController?.ExecutablePath != null;
-            LaunchAndEmbedButton.IsEnabled = canLaunchEmbed;
-
-            // 分离按钮：需要选中控制器且当前已嵌入
-            bool canDetach = controllerSelected && isEmbedded;
-            DetachButton.IsEnabled = canDetach;
-
-            // 关闭应用按钮状态
-            CloseAppButton.IsEnabled = isRunning;
-        }
-
         // 打开虚拟键盘按钮点击事件
         private void OpenKeyboardButton_Click(object sender, RoutedEventArgs e)
         {
             // 如果没有嵌入的窗口，提示用户
             if (!_windowEmbedManager.IsWindowEmbedded)
             {
-                _uiStateManager.UpdateStatus("错误：没有有效的嵌入窗口。请先启动并嵌入音乐应用。");
+                _uiStateManager.UpdateStatus("错误：没有有效的嵌入窗口。请先启动音乐应用。");
                 return;
             }
 
@@ -358,81 +331,120 @@ namespace MusicBridge
             await _searchManager.PerformDirectSearch(_windowEmbedManager.EmbeddedWindowHandle, searchText);
         }
 
-        // AppIcon_MouseDown事件 - 处理音乐应用图标点击
+        // AppIcon_MouseDown事件 - 处理音乐应用图标点击 - 自动启动和切换
         private async void AppIcon_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is FrameworkElement element && int.TryParse(element.Tag?.ToString(), out int appIndex))
             {
-                // 如果已有嵌入窗口并且点击了不同的应用图标，先关闭当前应用
-                if (_windowEmbedManager.IsWindowEmbedded && 
-                    currentController != null && 
-                    controllers[appIndex] != currentController)
-                {
-                    // 关闭当前运行的应用
-                    await CloseCurrentAppAsync();
-                }
+                if (appIndex < 0 || appIndex >= controllers.Count)
+                    return;
                 
                 // 更新选中图标状态
                 _appIconSelector.SelectAppIcon(appIndex);
                 
-                // 更新当前控制器
-                currentController = controllers[appIndex];
+                // 使用应用切换管理器执行切换
+                var targetController = controllers[appIndex];
                 
-                // 更新UI状态
-                _uiStateManager.UpdateStatus($"已选择 {GetAppNameByIndex(appIndex)}，请点击启动按钮");
+                // 自动切换到选中的应用
+                await _appSwitchManager.SwitchToAppAsync(targetController);
                 
-                // 刷新状态以更新按钮
+                // 刷新状态以更新按钮和UI
                 await RefreshMusicAppStatusAsync();
-            }
-        }
-        
-        // 根据索引获取应用名称
-        private string GetAppNameByIndex(int index)
-        {
-            switch (index)
-            {
-                case 0: return "QQ音乐";
-                case 1: return "网易云音乐";
-                case 2: return "酷狗音乐";
-                default: return "未知应用";
-            }
-        }
-        
-        // 关闭当前应用 - 新增的辅助方法
-        private async Task CloseCurrentAppAsync()
-        {
-            if (currentController == null || !_windowEmbedManager.IsWindowEmbedded)
-                return;
-                
-            // 先分离窗口
-            _windowEmbedManager.DetachEmbeddedWindow();
-            
-            // 查找进程并关闭
-            if (currentController.IsRunning())
-            {
-                _mediaPlayerHandler.CloseApp(currentController);
-                
-                // 更新状态
-                _uiStateManager.UpdateStatus($"已关闭 {currentController.Name}");
-                
-                // 等待进程真正关闭
-                await Task.Delay(500);
             }
         }
         
         // CloseAppButton_Click事件 - 处理关闭当前音乐应用按钮点击
         private async void CloseAppButton_Click(object sender, RoutedEventArgs e)
         {
-            await CloseCurrentAppAsync();
+            // 使用应用切换管理器关闭当前应用
+            await _appSwitchManager.CloseCurrentAppAsync();
             
             // 清除当前图标选择
             _appIconSelector.ClearSelection();
             
             // 重置当前控制器
-            currentController = null;
+            _appSwitchManager.SetCurrentController(null);
             
             // 更新UI状态
             await _uiStateManager.UpdateUIStateForNoController();
+        }
+        
+        // ReEmbedButton_Click事件 - 处理重新嵌入窗口按钮点击
+        private async void ReEmbedButton_Click(object sender, RoutedEventArgs e)
+        {
+            var currentController = _appSwitchManager.CurrentController;
+            if (currentController == null)
+            {
+                _uiStateManager.UpdateStatus("无应用可重新嵌入");
+                return;
+            }
+            
+            // 检查应用是否运行
+            if (!currentController.IsRunning())
+            {
+                _uiStateManager.UpdateStatus($"{currentController.Name} 未运行，无法重新嵌入");
+                return;
+            }
+            
+            try
+            {
+                // 查找应用窗口
+                IntPtr hwnd = WinAPI.FindMainWindow(currentController.ProcessName);
+                if (hwnd == IntPtr.Zero || !WinAPI.IsWindow(hwnd))
+                {
+                    _uiStateManager.UpdateStatus($"找不到 {currentController.Name} 的窗口，无法重新嵌入");
+                    return;
+                }
+                
+                // 尝试重新嵌入窗口
+                if (_windowEmbedManager.EmbedExistingWindow(hwnd))
+                {
+                    _uiStateManager.UpdateStatus($"{currentController.Name} 已重新嵌入");
+                    
+                    // 更新UI状态
+                    await RefreshMusicAppStatusAsync();
+                }
+                else
+                {
+                    _uiStateManager.UpdateStatus($"重新嵌入 {currentController.Name} 失败");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ReEmbedButton_Click] 错误: {ex}");
+                _uiStateManager.UpdateStatus($"重新嵌入时出错: {ex.Message}");
+            }
+        }
+        
+        // SystemKeyboardButton_Click事件 - 处理系统虚拟键盘按钮点击
+        private void SystemKeyboardButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 切换系统虚拟键盘的显示状态
+                bool isOpen = SystemKeyboardHelper.ToggleSystemKeyboard();
+                
+                // 更新按钮状态和提示文本
+                if (isOpen)
+                {
+                    // 键盘已打开，将按钮背景色改为更加明显的选中状态
+                    SystemKeyboardButton.Background = new SolidColorBrush(Color.FromRgb(179, 215, 255)); // #B3D7FF
+                    SystemKeyboardButton.ToolTip = "关闭系统虚拟键盘";
+                    _uiStateManager.UpdateStatus("系统虚拟键盘已启动");
+                }
+                else
+                {
+                    // 键盘已关闭，恢复按钮默认背景色
+                    SystemKeyboardButton.Background = new SolidColorBrush(Color.FromRgb(232, 244, 255)); // #E8F4FF
+                    SystemKeyboardButton.ToolTip = "打开系统虚拟键盘";
+                    _uiStateManager.UpdateStatus("系统虚拟键盘已关闭");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[SystemKeyboardButton_Click] 错误: {ex}");
+                _uiStateManager.UpdateStatus($"操作系统虚拟键盘时出错: {ex.Message}");
+            }
         }
     }
 }

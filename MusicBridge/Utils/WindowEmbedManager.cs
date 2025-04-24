@@ -8,7 +8,7 @@ using System.Windows.Threading;
 namespace MusicBridge.Utils
 {
     /// <summary>
-    /// Manages embedded windows operations
+    /// 管理窗口嵌入操作
     /// </summary>
     public class WindowEmbedManager
     {
@@ -54,13 +54,6 @@ namespace MusicBridge.Utils
             {
                 _updateStatus($"{controller.Name} 已嵌入，请先分离。");
                 return false;
-            }
-
-            // 显示酷狗音乐的特殊提示
-            if (controller is KugouMusicController)
-            {
-                string tips = KugouMusicController.GetEmbedTips();
-                MessageBox.Show(tips, "酷狗音乐嵌入提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
 
             _updateStatus($"正在启动 {controller.Name} ...");
@@ -140,6 +133,55 @@ namespace MusicBridge.Utils
             _appHost?.RestoreHostedWindow(); // AppHost 负责恢复窗口
             _embeddedWindowHandle = IntPtr.Zero; // 清除记录
             Debug.WriteLine("嵌入窗口已分离");
+        }
+        
+        /// <summary>
+        /// 嵌入现有的窗口（用于重新嵌入功能）
+        /// </summary>
+        /// <param name="hwnd">要嵌入的窗口句柄</param>
+        /// <returns>嵌入是否成功</returns>
+        public bool EmbedExistingWindow(IntPtr hwnd)
+        {
+            if (!_dispatcher.CheckAccess())
+            {
+                return (bool)_dispatcher.Invoke(() => EmbedExistingWindow(hwnd));
+            }
+            
+            // 如果已经有嵌入的窗口，先分离
+            if (IsWindowEmbedded)
+            {
+                DetachEmbeddedWindow();
+            }
+            
+            // 确认窗口仍然有效
+            if (hwnd == IntPtr.Zero || !WinAPI.IsWindow(hwnd))
+            {
+                _updateStatus("错误：无效的窗口句柄，无法嵌入。");
+                return false;
+            }
+
+            // 确保窗口不是最小化状态
+            if (WinAPI.IsIconic(hwnd))
+            {
+                WinAPI.ShowWindow(hwnd, WinAPI.SW_RESTORE);
+                System.Threading.Thread.Sleep(500); // 等待窗口恢复
+            }
+            
+            // 尝试嵌入
+            bool success = _appHost.EmbedWindow(hwnd);
+            
+            if (success)
+            {
+                _embeddedWindowHandle = hwnd; // 记录嵌入的句柄
+                _updateStatus("窗口已重新嵌入。");
+                return true;
+            }
+            else
+            {
+                _embeddedWindowHandle = IntPtr.Zero;
+                _updateStatus("重新嵌入窗口失败。");
+                return false;
+            }
         }
     }
 }

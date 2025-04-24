@@ -9,15 +9,16 @@ using System.Windows.Threading;
 namespace MusicBridge.Utils
 {
     /// <summary>
-    /// Manages the UI state for the application
+    /// 管理应用的UI状态
     /// </summary>
     public class UIStateManager
     {
         private readonly Dispatcher _dispatcher;
         private readonly TextBlock _statusTextBlock;
         private readonly TextBlock _currentSongTextBlock;
-        private readonly Button _launchAndEmbedButton;
+        private readonly Button _launchAndEmbedButton; // 可能为 null，因为已移除此按钮
         private readonly Button _detachButton;
+        private Button _reEmbedButton; // 移除readonly修饰符，允许后续修改
         private readonly Button _closeAppButton;
         private readonly Button _playPauseButton;
         private readonly Button _nextButton;
@@ -28,14 +29,18 @@ namespace MusicBridge.Utils
         private readonly FrameworkElement _operationOverlay;
         private readonly AppHost _appHost;
         
+        // 记录应用状态，用于重新嵌入功能
+        private bool _isControllerRunning = false;
+        private bool _isDetached = false;
+        
         /// <summary>
-        /// Creates a new instance of UIStateManager
+        /// 创建 UIStateManager 实例
         /// </summary>
         public UIStateManager(
             Dispatcher dispatcher,
             TextBlock statusTextBlock,
             TextBlock currentSongTextBlock,
-            Button launchAndEmbedButton,
+            Button launchAndEmbedButton, // 可能为 null
             Button detachButton,
             Button closeAppButton,
             Button playPauseButton,
@@ -61,10 +66,28 @@ namespace MusicBridge.Utils
             _muteButton = muteButton;
             _operationOverlay = operationOverlay;
             _appHost = appHost;
+            
+            // 查找重新嵌入按钮（通过 MainWindow 中的 FindName 查找）
+            if (_detachButton != null && _detachButton.Parent is UIElement parent)
+            {
+                var window = Window.GetWindow(parent);
+                if (window != null)
+                {
+                    _reEmbedButton = window.FindName("ReEmbedButton") as Button;
+                }
+            }
         }
         
         /// <summary>
-        /// Updates the status message
+        /// 设置重新嵌入按钮引用
+        /// </summary>
+        public void SetReEmbedButton(Button reEmbedButton)
+        {
+            _reEmbedButton = reEmbedButton;
+        }
+        
+        /// <summary>
+        /// 更新状态消息
         /// </summary>
         public void UpdateStatus(string status)
         {
@@ -83,7 +106,7 @@ namespace MusicBridge.Utils
         }
         
         /// <summary>
-        /// Updates the UI state based on application state
+        /// 根据应用状态更新UI
         /// </summary>
         public async Task UpdateUIState(
             IMusicAppController controller, 
@@ -91,6 +114,10 @@ namespace MusicBridge.Utils
             bool isEmbedded, 
             string currentSong)
         {
+            // 保存状态用于重新嵌入功能
+            _isControllerRunning = isRunning;
+            _isDetached = isRunning && !isEmbedded;
+            
             await _dispatcher.InvokeAsync(() =>
             {
                 // 更新歌曲信息
@@ -111,8 +138,18 @@ namespace MusicBridge.Utils
                 }
                 
                 // 设置交互按钮状态
-                _launchAndEmbedButton.IsEnabled = controller != null && !isEmbedded && controller.ExecutablePath != null;
+                if (_launchAndEmbedButton != null)
+                {
+                    _launchAndEmbedButton.IsEnabled = controller != null && !isEmbedded && controller.ExecutablePath != null;
+                }
+                
                 _detachButton.IsEnabled = isEmbedded;
+                
+                // 设置重新嵌入按钮状态 - 应用运行但未嵌入时启用
+                if (_reEmbedButton != null)
+                {
+                    _reEmbedButton.IsEnabled = _isDetached;
+                }
                 
                 // 设置媒体控制按钮状态
                 SetMediaButtonsEnabled(isRunning);
@@ -123,18 +160,32 @@ namespace MusicBridge.Utils
         }
         
         /// <summary>
-        /// Updates the UI state when no controller is selected
+        /// 当没有选择控制器时更新UI状态
         /// </summary>
         public async Task UpdateUIStateForNoController()
         {
+            // 重置状态
+            _isControllerRunning = false;
+            _isDetached = false;
+            
             await _dispatcher.InvokeAsync(() =>
             {
                 _currentSongTextBlock.Text = "歌曲: N/A";
                 UpdateStatus("请选择播放器");
                 
                 // 禁用所有交互按钮
-                _launchAndEmbedButton.IsEnabled = false;
+                if (_launchAndEmbedButton != null)
+                {
+                    _launchAndEmbedButton.IsEnabled = false;
+                }
+                
                 _detachButton.IsEnabled = false;
+                
+                if (_reEmbedButton != null)
+                {
+                    _reEmbedButton.IsEnabled = false;
+                }
+                
                 _closeAppButton.IsEnabled = false;
                 SetMediaButtonsEnabled(false);
                 
@@ -145,7 +196,7 @@ namespace MusicBridge.Utils
         }
         
         /// <summary>
-        /// Updates the UI state when an error occurs
+        /// 当发生错误时更新UI状态
         /// </summary>
         public async Task UpdateUIStateForError()
         {
@@ -156,15 +207,33 @@ namespace MusicBridge.Utils
                 _appHost.Visibility = Visibility.Collapsed;
                 
                 // 禁用交互按钮
-                _launchAndEmbedButton.IsEnabled = false;
+                if (_launchAndEmbedButton != null)
+                {
+                    _launchAndEmbedButton.IsEnabled = false;
+                }
+                
                 _detachButton.IsEnabled = false;
+                
+                if (_reEmbedButton != null)
+                {
+                    _reEmbedButton.IsEnabled = false;
+                }
+                
                 _closeAppButton.IsEnabled = false;
                 SetMediaButtonsEnabled(false);
             });
         }
         
         /// <summary>
-        /// Sets the enabled state of media control buttons
+        /// 检查是否应用已运行但处于分离状态（可重新嵌入）
+        /// </summary>
+        public bool CanReEmbed()
+        {
+            return _isControllerRunning && _isDetached;
+        }
+        
+        /// <summary>
+        /// 设置媒体控制按钮的启用状态
         /// </summary>
         private void SetMediaButtonsEnabled(bool isEnabled)
         {

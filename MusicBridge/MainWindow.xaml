@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:MusicBridge"
         xmlns:utils="clr-namespace:MusicBridge.Utils"
         mc:Ignorable="d"
-        Title="堂会启动器" Height="600" Width="800"
+        Title="音乐桥接器 (嵌入版)" Height="600" Width="800"
         FocusVisualStyle="{x:Null}">
     <Grid>
         <Grid.RowDefinitions>
@@ -25,24 +25,7 @@
                 <Border x:Name="OperationOverlay" Background="#FAFAFA" CornerRadius="5" Visibility="Visible">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock Text="请选择下方的音乐应用图标" FontSize="16" Margin="0,0,0,15" HorizontalAlignment="Center"/>
-                        <Button x:Name="LaunchAndEmbedButton" Content="启动并嵌入" Padding="15,8" 
-                                Background="#1E90FF" Foreground="White" BorderThickness="0" 
-                                Click="LaunchAndEmbedButton_Click" IsEnabled="False">
-                            <Button.Resources>
-                                <Style TargetType="Border">
-                                    <Setter Property="CornerRadius" Value="4"/>
-                                </Style>
-                            </Button.Resources>
-                        </Button>
-                        <Button x:Name="DetachButton" Content="分离窗口" Padding="15,8" Margin="0,10,0,0" 
-                                Background="#E0E0E0" BorderThickness="0" 
-                                Click="DetachButton_Click" IsEnabled="False">
-                            <Button.Resources>
-                                <Style TargetType="Border">
-                                    <Setter Property="CornerRadius" Value="4"/>
-                                </Style>
-                            </Button.Resources>
-                        </Button>
+                        <TextBlock Text="点击图标自动启动并嵌入应用" FontSize="14" Margin="0,0,0,0" Foreground="#666666" HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -62,7 +45,7 @@
                 <Border x:Name="QQMusicIcon" Width="36" Height="36" CornerRadius="18" Margin="2,0"
                        MouseDown="AppIcon_MouseDown" Tag="0" ToolTip="QQ音乐" Cursor="Hand"
                        Focusable="False" BorderThickness="2" BorderBrush="Transparent">
-                    <Border Width="28" Height="28" Background="#43BB68" CornerRadius="14" Focusable="False">
+                    <Border Width="28" Height="28" Background="#1E90FF" CornerRadius="14" Focusable="False">
                         <TextBlock Text="QQ" FontSize="12" FontWeight="Bold" 
                                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White"/>
                     </Border>
@@ -127,11 +110,36 @@
             
             <!-- 功能按钮区 -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
+                <!-- 分离窗口按钮 -->
+                <Button x:Name="DetachButton" Style="{StaticResource IconButtonStyle}" Width="34" Height="34"
+                        Background="#F5F5F5" Click="DetachButton_Click" IsEnabled="False" 
+                        ToolTip="分离窗口" Margin="1">
+                    <Path Data="M2,8 L6,12 L10,8 M6,12 L6,2 M2,16 L16,16 L16,6" 
+                          Stroke="#555555" StrokeThickness="1.5" Stretch="Uniform" Width="16" Height="16"/>
+                </Button>
+                
+                <!-- 重新嵌入按钮 -->
+                <Button x:Name="ReEmbedButton" Style="{StaticResource IconButtonStyle}" Width="34" Height="34"
+                        Background="#F5F5F5" Click="ReEmbedButton_Click" IsEnabled="False" 
+                        ToolTip="重新嵌入" Margin="1">
+                    <Path Data="M2,16 L6,12 L10,16 M6,12 L6,22 M2,6 L16,6 L16,16" 
+                          Stroke="#555555" StrokeThickness="1.5" Stretch="Uniform" Width="16" Height="16"/>
+                </Button>
+                
+                <!-- 系统虚拟键盘按钮 - 新增 -->
+                <Button x:Name="SystemKeyboardButton" Style="{StaticResource IconButtonStyle}" Width="34" Height="34"
+                        Background="#E8F4FF" Click="SystemKeyboardButton_Click" 
+                        ToolTip="打开系统虚拟键盘" Margin="1">
+                    <Path Data="{StaticResource SystemKeyboardIcon}" Fill="#3383DD" Stretch="Uniform" Width="18" Height="16"/>
+                </Button>
+                
+                <!-- 搜索按钮 -->
                 <Button x:Name="OpenKeyboardButton" Style="{StaticResource IconButtonStyle}" Width="34" Height="34"
                         Click="OpenKeyboardButton_Click" ToolTip="搜索歌曲" Margin="1" Background="#F0F8FF">
                     <Path Data="{StaticResource SearchIcon}" Fill="#1E90FF" Stretch="Uniform" Width="18" Height="18"/>
                 </Button>
                 
+                <!-- 关闭当前应用按钮 -->
                 <Button x:Name="CloseAppButton" Style="{StaticResource IconButtonStyle}" Width="34" Height="34"
                         Background="#FFEBEE" Click="CloseAppButton_Click" IsEnabled="False" 
                         ToolTip="关闭当前音乐应用" Margin="1">
@@ -140,7 +148,7 @@
             </StackPanel>
         </Grid>
 
-        <!-- 状态栏 (紧凑化) -->
+        <!-- 状态栏 -->
         <StatusBar Grid.Row="2" Height="25" Background="#F5F5F5">
             <StatusBarItem Height="18">
                 <TextBlock x:Name="CurrentSongTextBlock" Text="歌曲: 无" FontSize="11"/>
