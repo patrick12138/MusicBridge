@@ -11,9 +11,24 @@ namespace MusicBridge
         public const int WM_CLOSE = 0x0010;       // 关闭窗口消息
         public const int WM_DESTROY = 0x0002;     // 销毁窗口消息
         public const int WM_SIZE = 0x0005;        // 窗口大小改变消息
-        public const int WM_SETTEXT = 0x000C; // 用于设置窗口文本的消息
-        public const int WM_KEYDOWN = 0x0100;
-        public const int WM_KEYUP = 0x0101;
+        public const int WM_SETTEXT = 0x000C;     // 用于设置窗口文本的消息
+        public const int WM_KEYDOWN = 0x0100;     // 键盘按下消息
+        public const int WM_KEYUP = 0x0101;       // 键盘抬起消息
+        public const int WM_SYSKEYDOWN = 0x0104;  // 系统键(如Alt)按下消息
+        public const int WM_SYSKEYUP = 0x0105;    // 系统键(如Alt)抬起消息
+        public const int WM_CHAR = 0x0102;        // 字符输入消息
+        public const int WM_SYSCHAR = 0x0106;     // 系统字符输入消息
+        public const int WM_SETFOCUS = 0x0007;    // 窗口获得焦点消息
+        public const int WM_KILLFOCUS = 0x0008;   // 窗口失去焦点消息
+        public const int WM_LBUTTONDOWN = 0x0201; // 鼠标左键按下消息
+        public const int WM_RBUTTONDOWN = 0x0204; // 鼠标右键按下消息
+        public const int WM_MBUTTONDOWN = 0x0207; // 鼠标中键按下消息
+        
+        // --- 媒体控制按键虚拟键码 ---
+        public const byte VK_MEDIA_NEXT_TRACK = 0xB0;  // 多媒体下一曲键
+        public const byte VK_MEDIA_PREV_TRACK = 0xB1;  // 多媒体上一曲键
+        public const byte VK_MEDIA_STOP = 0xB2;        // 多媒体停止键
+        public const byte VK_MEDIA_PLAY_PAUSE = 0xB3;  // 多媒体播放/暂停键
 
         // --- APPCOMMAND 常量 (用于 WM_APPCOMMAND 消息) ---
         public const int APPCOMMAND_MEDIA_PLAY_PAUSE = 14 << 16;
@@ -52,19 +67,69 @@ namespace MusicBridge
         public const int VK_RETURN = 0x0D; // 回车键
 
 
-        // 普通键盘按键的虚拟键码
-        public const byte VK_SPACE = 0x20;
-        public const byte VK_LEFT = 0x25;
-        public const byte VK_RIGHT = 0x27;
-        public const byte VK_UP = 0x26;
-        public const byte VK_DOWN = 0x28;
-        public const byte VK_CONTROL = 0x11;
-        public const byte VK_MENU = 0x12;    // Alt键
-        public const byte VK_SHIFT = 0x10;
-        public const byte VK_LWIN = 0x5B;    // 左 Windows 键
-        public const byte VK_RWIN = 0x5C;    // 右 Windows 键
-        public const byte VK_P = 0x50;       // P 键
-                                             // --- 键盘事件标志 (用于 keybd_event 函数) ---
+        // --- 键盘相关常量 ---
+        // 虚拟键码常量 (Virtual-Key Codes)
+        public const ushort VK_LBUTTON = 0x01;   // 鼠标左键
+        public const ushort VK_RBUTTON = 0x02;   // 鼠标右键
+        public const ushort VK_CANCEL = 0x03;    // Control-break processing
+        public const ushort VK_MBUTTON = 0x04;   // 鼠标中键
+        
+        public const ushort VK_BACK = 0x08;      // BACKSPACE 键
+        public const ushort VK_TAB = 0x09;       // TAB 键
+        
+        // public const ushort VK_RETURN = 0x0D;    // ENTER 键
+        
+        public const ushort VK_SHIFT = 0x10;     // SHIFT 键
+        public const ushort VK_CONTROL = 0x11;   // CTRL 键
+        public const ushort VK_MENU = 0x12;      // ALT 键
+        public const ushort VK_PAUSE = 0x13;     // PAUSE 键
+        public const ushort VK_CAPITAL = 0x14;   // CAPS LOCK 键
+        
+        public const ushort VK_ESCAPE = 0x1B;    // ESC 键
+        public const ushort VK_SPACE = 0x20;     // SPACEBAR 键
+        public const ushort VK_PRIOR = 0x21;     // PAGE UP 键
+        public const ushort VK_NEXT = 0x22;      // PAGE DOWN 键
+        public const ushort VK_END = 0x23;       // END 键
+        public const ushort VK_HOME = 0x24;      // HOME 键
+        public const ushort VK_LEFT = 0x25;      // LEFT ARROW 键
+        public const ushort VK_UP = 0x26;        // UP ARROW 键
+        public const ushort VK_RIGHT = 0x27;     // RIGHT ARROW 键
+        public const ushort VK_DOWN = 0x28;      // DOWN ARROW 键
+        
+        public const ushort VK_PRINT = 0x2A;     // PRINT 键
+        public const ushort VK_SNAPSHOT = 0x2C;  // PRINT SCREEN 键
+        public const ushort VK_INSERT = 0x2D;    // INS 键
+        public const byte VK_DELETE = 0x2E;    // DEL 键
+        
+        // 字母键 (A-Z)
+        public const ushort VK_A = 0x41;
+        public const ushort VK_B = 0x42;
+        public const ushort VK_C = 0x43;
+        public const ushort VK_D = 0x44;
+        public const ushort VK_E = 0x45;
+        public const ushort VK_F = 0x46;
+        public const ushort VK_G = 0x47;
+        public const ushort VK_H = 0x48;
+        public const ushort VK_I = 0x49;
+        public const ushort VK_J = 0x4A;
+        public const ushort VK_K = 0x4B;
+        public const ushort VK_L = 0x4C;
+        public const ushort VK_M = 0x4D;
+        public const ushort VK_N = 0x4E;
+        public const ushort VK_O = 0x4F;
+        public const ushort VK_P = 0x50;
+        public const ushort VK_Q = 0x51;
+        public const ushort VK_R = 0x52;
+        public const ushort VK_S = 0x53;
+        public const ushort VK_T = 0x54;
+        public const ushort VK_U = 0x55;
+        public const ushort VK_V = 0x56;
+        public const ushort VK_W = 0x57;
+        public const ushort VK_X = 0x58;
+        public const ushort VK_Y = 0x59;
+        public const ushort VK_Z = 0x5A;
+
+        // --- 键盘事件标志 (用于 keybd_event 函数) ---
         public const uint KEYEVENTF_EXTENDEDKEY = 0x0001;  // 指示扩展键 (例如箭头键、功能键等)
         public const uint KEYEVENTF_KEYUP = 0x0002;        // 指示按键释放
 
@@ -235,20 +300,6 @@ namespace MusicBridge
         public static extern IntPtr GetParent(IntPtr hWnd);
 
         /// <summary>
-        /// 异步释放常用的修饰键 (Ctrl, Alt, Shift, Win)。
-        /// </summary>
-        public static async Task ReleaseAllModifierKeysAsync()
-        {
-            byte[] modifierKeys = { VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN };
-            foreach (byte key in modifierKeys)
-            {
-                // 发送抬起事件，以防万一按键被卡住
-                keybd_event(key, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-            }
-            await Task.Delay(30); // 短暂等待
-        }
-
-        /// <summary>
         /// 异步模拟单个按键的按下和抬起。
         /// </summary>
         /// <param name="vkCode">要模拟的虚拟键码。</param>
@@ -372,5 +423,53 @@ namespace MusicBridge
             if (potentialHwnds.Count == 1) return potentialHwnds[0];
             return IntPtr.Zero;
         }
+
+        // 将消息发送到指定窗口的消息队列，然后立即返回（异步）
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool PostMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+        
+        // 将虚拟键码映射到扫描码
+        [DllImport("user32.dll")]
+        public static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
+        // --- 鼠标相关常量 ---
+        public const uint INPUT_MOUSE = 0;
+        public const uint MOUSEEVENTF_MOVE = 0x0001;
+        public const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
+        public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        public const uint MOUSEEVENTF_LEFTUP = 0x0004;
+        
+        // --- 系统信息常量 ---
+        public const int SM_CXSCREEN = 0;
+        public const int SM_CYSCREEN = 1;
+        
+        // --- 窗口和客户区矩形相关 ---
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+        
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT
+        {
+            public int X;
+            public int Y;
+        }
+        
+        [DllImport("user32.dll")]
+        public static extern bool GetWindowRect(IntPtr hWnd, ref RECT lpRect);
+        
+        [DllImport("user32.dll")]
+        public static extern bool GetClientRect(IntPtr hWnd, ref RECT lpRect);
+        
+        [DllImport("user32.dll")]
+        public static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
+        
+        [DllImport("user32.dll")]
+        public static extern int GetSystemMetrics(int nIndex);
     }
 }

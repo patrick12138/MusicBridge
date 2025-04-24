@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using Microsoft.Win32;
@@ -173,6 +174,15 @@ namespace MusicBridge
                 return;
             }
 
+            // 首先尝试使用媒体键方法（这是从网易云验证有效的方法）
+            bool success = await SendMediaKeyCommandAsync(targetHwnd, command);
+            if (success)
+            {
+                Debug.WriteLine($"[{Name} SendCommandAsync] 使用媒体键成功发送 {command} 到 HWND: {targetHwnd}");
+                return;
+            }
+
+            // 如果媒体键方法失败，回退到传统的 WM_APPCOMMAND 消息
             int? appCommand = command switch
             {
                 MediaCommand.PlayPause => WinAPI.APPCOMMAND_MEDIA_PLAY_PAUSE,
@@ -188,14 +198,86 @@ namespace MusicBridge
             {
                 Debug.WriteLine($"[{Name} SendCommandAsync] 发送 WM_APPCOMMAND ({command}) 到 HWND: {targetHwnd}");
                 WinAPI.SendMessageW(targetHwnd, WinAPI.WM_APPCOMMAND, targetHwnd, (IntPtr)appCommand.Value);
-                // SendMessage 是同步的，但命令执行是异步的，稍作等待有助于界面响应
                 await Task.Delay(50);
             }
             else
             {
                 Debug.WriteLine($"[{Name} SendCommandAsync] 收到无效的命令: {command}");
             }
-            // **不再需要键盘模拟逻辑**
+        }
+
+        // 使用媒体控制键发送命令（从网易云音乐控制器中提取的有效方法）
+        protected virtual async Task<bool> SendMediaKeyCommandAsync(IntPtr hwnd, MediaCommand command)
+        {
+            try
+            {
+                // 映射媒体控制命令到对应的虚拟键
+                byte virtualKey = 0;
+                const uint MAPVK_VK_TO_VSC = 0;
+                
+                switch (command)
+                {
+                    case MediaCommand.PlayPause:
+                        virtualKey = WinAPI.VK_MEDIA_PLAY_PAUSE;
+                        break;
+                    case MediaCommand.NextTrack:
+                        virtualKey = WinAPI.VK_MEDIA_NEXT_TRACK;
+                        break;
+                    case MediaCommand.PreviousTrack:
+                        virtualKey = WinAPI.VK_MEDIA_PREV_TRACK;
+                        break;
+                    default:
+                        return false; // 不支持其他命令
+                }
+                
+                if (virtualKey != 0)
+                {
+                    // 获取按键的扫描码
+                    uint scanCode = WinAPI.MapVirtualKey(virtualKey, MAPVK_VK_TO_VSC);
+                    Debug.WriteLine($"[{Name}] 使用媒体控制键 - VK: 0x{virtualKey:X}, ScanCode: {scanCode}");
+                    
+                    // 构造LPARAM（按照Windows键盘消息格式）
+                    uint repeatCount = 1;
+                    uint downLParam = (repeatCount & 0xFFFF) | (scanCode << 16) | (0 << 24) | (0 << 29) | (0 << 30) | (0 << 31);
+                    uint upLParam = (repeatCount & 0xFFFF) | (scanCode << 16) | (0 << 24) | (1 << 29) | (1 << 30) | (0 << 31);
+                    
+                    // 发送键盘消息（使用PostMessage可能更适合网易云这类应用）
+                    WinAPI.PostMessage(hwnd, WinAPI.WM_KEYDOWN, (IntPtr)virtualKey, (IntPtr)downLParam);
+                    await Task.Delay(50);
+                    WinAPI.PostMessage(hwnd, WinAPI.WM_KEYUP, (IntPtr)virtualKey, (IntPtr)upLParam);
+                    
+                    // 同时尝试使用SendInput发送系统级别的按键
+                    WinAPI.INPUT[] inputs = new WinAPI.INPUT[2];
+                    
+                    // 设置按键按下
+                    inputs[0].type = WinAPI.INPUT_KEYBOARD;
+                    inputs[0].u.ki.wVk = virtualKey;
+                    inputs[0].u.ki.wScan = (ushort)scanCode;
+                    inputs[0].u.ki.dwFlags = WinAPI.KEYEVENTF_EXTENDEDKEY;
+                    inputs[0].u.ki.time = 0;
+                    inputs[0].u.ki.dwExtraInfo = WinAPI.GetMessageExtraInfo();
+                    
+                    // 设置按键抬起
+                    inputs[1].type = WinAPI.INPUT_KEYBOARD;
+                    inputs[1].u.ki.wVk = virtualKey;
+                    inputs[1].u.ki.wScan = (ushort)scanCode;
+                    inputs[1].u.ki.dwFlags = WinAPI.KEYEVENTF_EXTENDEDKEY | WinAPI.KEYEVENTF_KEYUP;
+                    inputs[1].u.ki.time = 0;
+                    inputs[1].u.ki.dwExtraInfo = WinAPI.GetMessageExtraInfo();
+                    
+                    // 发送按键
+                    uint result = WinAPI.SendInput(2, inputs, Marshal.SizeOf(typeof(WinAPI.INPUT)));
+                    Debug.WriteLine($"[{Name}] SendInput result: {result}");
+                    
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{Name}] 发送媒体键命令失败: {ex.Message}");
+            }
+            
+            return false;
         }
 
         // 获取当前歌曲：从目标窗口标题获取
@@ -240,6 +322,29 @@ namespace MusicBridge
                 }
             }
             return title.Trim(); // 没有匹配到后缀，返回原始标题
+        }
+
+        // 网易云可能需要特殊处理子窗口，可以在需要时添加
+        // 这里我们保留了递归查找子窗口的辅助方法
+        protected List<IntPtr> FindChildWindows(IntPtr parentHwnd)
+        {
+            List<IntPtr> result = new List<IntPtr>();
+            
+            WinAPI.EnumChildWindows(parentHwnd, (childHwnd, lParam) => {
+                StringBuilder className = new StringBuilder(256);
+                WinAPI.GetClassName(childHwnd, className, className.Capacity);
+                
+                // 仅记录类名为 CefBrowserWindow 的窗口，这是网易云音乐的主要内容窗口
+                if (className.ToString().Contains("CefBrowserWindow"))
+                {
+                    Debug.WriteLine($"[{Name}] 找到CEF浏览器窗口: {childHwnd}");
+                    result.Add(childHwnd);
+                }
+                
+                return true; // 继续枚举
+            }, IntPtr.Zero);
+            
+            return result;
         }
     }
 

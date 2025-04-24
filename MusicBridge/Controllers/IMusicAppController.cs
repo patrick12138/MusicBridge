@@ -21,7 +21,6 @@ namespace MusicBridge.Controllers
         bool IsRunning();             // 检查是否运行
         Task LaunchAsync();           // 启动应用 (异步)
         Task CloseAppAsync();         // 关闭应用 (异步)
-        // 控制命令现在直接针对 HWND 发送消息，不再需要复杂模拟
         Task SendCommandAsync(IntPtr targetHwnd, MediaCommand command);
         string GetCurrentSong(IntPtr targetHwnd); // 获取歌曲信息也需要目标 HWND
         Task<string?> FindExecutablePathAsync(); // 查找路径

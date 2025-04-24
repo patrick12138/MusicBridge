@@ -160,9 +160,30 @@ namespace MusicBridge
         {
             if (_hostHwnd != IntPtr.Zero && _hostedAppHwnd != IntPtr.Zero && WinAPI.IsWindow(_hostedAppHwnd))
             {
-                // 将嵌入窗口的大小设置为宿主窗口的当前客户区大小
-                bool moved = WinAPI.MoveWindow(_hostedAppHwnd, 0, 0, (int)this.ActualWidth, (int)this.ActualHeight, true);
-                Debug.WriteLine($"[AppHost Resize] 调整嵌入窗口 {_hostedAppHwnd} 大小为 {ActualWidth}x{ActualHeight}，结果: {moved}");
+                // 获取当前DPI信息
+                var source = PresentationSource.FromVisual(this);
+                if (source?.CompositionTarget != null)
+                {
+                    // 获取DPI缩放因子
+                    double dpiX = source.CompositionTarget.TransformToDevice.M11;
+                    double dpiY = source.CompositionTarget.TransformToDevice.M22;
+                    
+                    // 使用DPI调整后的尺寸
+                    int width = (int)(this.ActualWidth * dpiX);
+                    int height = (int)(this.ActualHeight * dpiY);
+                    
+                    Debug.WriteLine($"[AppHost Resize] 调整窗口，应用DPI缩放: {dpiX}x{dpiY}，原始尺寸: {ActualWidth}x{ActualHeight}，调整后: {width}x{height}");
+                    
+                    // 将嵌入窗口的大小设置为考虑DPI缩放后的尺寸
+                    bool moved = WinAPI.MoveWindow(_hostedAppHwnd, 0, 0, width, height, true);
+                    Debug.WriteLine($"[AppHost Resize] 调整嵌入窗口 {_hostedAppHwnd} 大小为 {width}x{height}，结果: {moved}");
+                }
+                else
+                {
+                    // 退回到原来的实现（无DPI感知）
+                    bool moved = WinAPI.MoveWindow(_hostedAppHwnd, 0, 0, (int)this.ActualWidth, (int)this.ActualHeight, true);
+                    Debug.WriteLine($"[AppHost Resize] 调整嵌入窗口 {_hostedAppHwnd} 大小为 {ActualWidth}x{ActualHeight}，结果: {moved}");
+                }
             }
         }
 
@@ -179,7 +200,44 @@ namespace MusicBridge
                         ResizeEmbeddedWindow();
                         handled = true; // 消息已处理
                         break;
-                        // 可以添加其他消息处理，例如焦点管理
+                    
+                    // 添加键盘消息转发
+                    case WinAPI.WM_KEYDOWN:
+                    case WinAPI.WM_KEYUP:
+                    case WinAPI.WM_SYSKEYDOWN:
+                    case WinAPI.WM_SYSKEYUP:
+                    case WinAPI.WM_CHAR:
+                    case WinAPI.WM_SYSCHAR:
+                        // 如果有嵌入窗口且有效，则转发键盘消息
+                        if (_hostedAppHwnd != IntPtr.Zero && WinAPI.IsWindow(_hostedAppHwnd))
+                        {
+                            WinAPI.SendMessage(_hostedAppHwnd, msg, wParam, lParam);
+                            // 标记为已处理，避免WPF再处理一遍
+                            handled = true;
+                            Debug.WriteLine($"[AppHost KeyEvent] 转发键盘消息 {msg} 到嵌入窗口 {_hostedAppHwnd}");
+                        }
+                        break;
+                    
+                    // 处理焦点获取
+                    case WinAPI.WM_SETFOCUS:
+                        // 当宿主获得焦点时，将焦点传递给嵌入窗口
+                        if (_hostedAppHwnd != IntPtr.Zero && WinAPI.IsWindow(_hostedAppHwnd))
+                        {
+                            WinAPI.SetFocus(_hostedAppHwnd);
+                            Debug.WriteLine($"[AppHost Focus] 将焦点设置到嵌入窗口 {_hostedAppHwnd}");
+                            handled = true;
+                        }
+                        break;
+                        
+                    // 处理鼠标点击，确保点击时自动获取焦点
+                    case WinAPI.WM_LBUTTONDOWN:
+                    case WinAPI.WM_RBUTTONDOWN:
+                    case WinAPI.WM_MBUTTONDOWN:
+                        if (_hostedAppHwnd != IntPtr.Zero && WinAPI.IsWindow(_hostedAppHwnd))
+                        {
+                            WinAPI.SetFocus(_hostedAppHwnd);
+                        }
+                        break;
                 }
             }
             // 调用基类处理其他消息

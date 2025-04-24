@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl x:Class="MusicBridge.Utils.VirtualKeyboard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/MusicBridge;component/Resources/KeyboardStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    
+    <Border BorderBrush="#CCCCCC" BorderThickness="1" Background="White" CornerRadius="4">
+        <Grid Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- 标题文本区域 -->
+            <TextBlock x:Name="TitleTextBlock" Grid.Row="0" Text="搜索" 
+                       FontSize="16" FontWeight="Bold" Margin="0,0,0,10" 
+                       HorizontalAlignment="Center"/>
+            
+            <!-- 输入区域 -->
+            <TextBox x:Name="InputTextBox" Grid.Row="1" Height="40" FontSize="18" Margin="0,0,0,10" 
+                     VerticalContentAlignment="Center" HorizontalContentAlignment="Left" Padding="5,0"/>
+            
+            <!-- 候选词区域 -->
+            <ScrollViewer Grid.Row="2" MaxHeight="100" VerticalScrollBarVisibility="Auto" 
+                          HorizontalScrollBarVisibility="Auto" Margin="0,0,0,10">
+                <WrapPanel x:Name="CandidatesPanel" Orientation="Horizontal"/>
+            </ScrollViewer>
+            
+            <!-- 键盘区域 -->
+            <TabControl x:Name="KeyboardTabControl" Grid.Row="3" Margin="0,0,0,10" BorderThickness="0">
+                <!-- 拼音输入模式 -->
+                <TabItem x:Name="PinyinTab" Header="拼音">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- 第一行: 数字 -->
+                        <WrapPanel Grid.Row="0" HorizontalAlignment="Center">
+                            <Button Content="1" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="2" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="3" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="4" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="5" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="6" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="7" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="8" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="9" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="0" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                        </WrapPanel>
+                        
+                        <!-- 第二行 -->
+                        <WrapPanel Grid.Row="1" HorizontalAlignment="Center">
+                            <Button Content="q" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="w" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="e" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="r" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="t" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="y" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="u" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="i" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="o" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="p" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                        </WrapPanel>
+                        
+                        <!-- 第三行 -->
+                        <WrapPanel Grid.Row="2" HorizontalAlignment="Center">
+                            <Button Content="a" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="s" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="d" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="f" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="g" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="h" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="j" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="k" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="l" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                        </WrapPanel>
+                        
+                        <!-- 第四行 -->
+                        <WrapPanel Grid.Row="3" HorizontalAlignment="Center">
+                            <Button Content="z" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="x" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="c" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="v" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="b" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="n" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="m" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="," Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="." Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                        </WrapPanel>
+                        
+                        <!-- 第五行: 功能键 -->
+                        <WrapPanel Grid.Row="4" HorizontalAlignment="Center">
+                            <Button Content="空格" Style="{StaticResource KeyboardButtonStyle}" Width="180" Click="KeyButton_Click"/>
+                            <Button Content="退格" Style="{StaticResource KeyboardButtonStyle}" Width="80" Click="BackspaceButton_Click"/>
+                        </WrapPanel>
+                    </Grid>
+                </TabItem>
+                
+                <!-- 英文输入模式 -->
+                <TabItem Header="英文">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- 第一行: 数字 -->
+                        <WrapPanel Grid.Row="0" HorizontalAlignment="Center">
+                            <Button Content="1" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="2" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="3" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="4" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="5" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="6" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="7" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="8" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="9" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="0" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                        </WrapPanel>
+                        
+                        <!-- 第二行 -->
+                        <WrapPanel Grid.Row="1" HorizontalAlignment="Center">
+                            <Button Content="Q" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="W" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="E" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="R" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="T" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="Y" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="U" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="I" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="O" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="P" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                        </WrapPanel>
+                        
+                        <!-- 第三行 -->
+                        <WrapPanel Grid.Row="2" HorizontalAlignment="Center">
+                            <Button Content="A" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="S" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="D" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="F" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="G" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="H" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="J" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="K" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="L" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                        </WrapPanel>
+                        
+                        <!-- 第四行 -->
+                        <WrapPanel Grid.Row="3" HorizontalAlignment="Center">
+                            <Button Content="Z" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="X" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="C" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="V" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="B" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="N" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="M" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="," Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="." Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                        </WrapPanel>
+                        
+                        <!-- 第五行: 功能键 -->
+                        <WrapPanel Grid.Row="4" HorizontalAlignment="Center">
+                            <Button Content=" " Style="{StaticResource KeyboardButtonStyle}" Width="180" Click="KeyButton_Click"/>
+                            <Button Content="Backspace" Style="{StaticResource KeyboardButtonStyle}" Width="80" Click="BackspaceButton_Click"/>
+                        </WrapPanel>
+                    </Grid>
+                </TabItem>
+                
+                <!-- 特殊字符输入模式 -->
+                <TabItem Header="符号">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- 第一行: 常用符号 -->
+                        <WrapPanel Grid.Row="0" HorizontalAlignment="Center">
+                            <Button Content="!" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="@" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="#" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="$" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="%" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="^" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="&amp;" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="*" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="(" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content=")" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                        </WrapPanel>
+                        
+                        <!-- 第二行 -->
+                        <WrapPanel Grid.Row="1" HorizontalAlignment="Center">
+                            <Button Content="-" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="_" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="=" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="+" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="[" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="]" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="/{" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="}" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="\" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="|" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                        </WrapPanel>
+                        
+                        <!-- 第三行 -->
+                        <WrapPanel Grid.Row="2" HorizontalAlignment="Center">
+                            <Button Content=";" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content=":" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="'" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="&quot;" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="," Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="." Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="/" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="?" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="&lt;" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                            <Button Content="&gt;" Style="{StaticResource KeyboardButtonStyle}" Click="KeyButton_Click"/>
+                        </WrapPanel>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+            
+            <!-- 底部按钮区域 -->
+            <Grid Grid.Row="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Content="清除" Style="{StaticResource KeyboardButtonStyle}" Width="80" Click="ClearButton_Click"/>
+                    <Button Content="取消" Style="{StaticResource KeyboardButtonStyle}" Width="80" Margin="10,0,0,0" Click="CancelButton_Click"/>
+                </StackPanel>
+                
+                <Button x:Name="SearchButton" Grid.Column="1" Content="搜索" Style="{StaticResource KeyboardButtonStyle}" Width="120" 
+                        HorizontalAlignment="Right" Background="#4CAF50" Foreground="White" 
+                        Click="SearchButton_Click"/>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>
