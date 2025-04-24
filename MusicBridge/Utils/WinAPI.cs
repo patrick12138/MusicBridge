@@ -11,6 +11,9 @@ namespace MusicBridge
         public const int WM_CLOSE = 0x0010;       // 关闭窗口消息
         public const int WM_DESTROY = 0x0002;     // 销毁窗口消息
         public const int WM_SIZE = 0x0005;        // 窗口大小改变消息
+        public const int WM_SETTEXT = 0x000C; // 用于设置窗口文本的消息
+        public const int WM_KEYDOWN = 0x0100;
+        public const int WM_KEYUP = 0x0101;
 
         // --- APPCOMMAND 常量 (用于 WM_APPCOMMAND 消息) ---
         public const int APPCOMMAND_MEDIA_PLAY_PAUSE = 14 << 16;
@@ -46,10 +49,89 @@ namespace MusicBridge
 
         // --- ShowWindow 命令 ---
         public const int SW_RESTORE = 9;              // 还原窗口
+        public const int VK_RETURN = 0x0D; // 回车键
+
+
+        // 普通键盘按键的虚拟键码
+        public const byte VK_SPACE = 0x20;
+        public const byte VK_LEFT = 0x25;
+        public const byte VK_RIGHT = 0x27;
+        public const byte VK_UP = 0x26;
+        public const byte VK_DOWN = 0x28;
+        public const byte VK_CONTROL = 0x11;
+        public const byte VK_MENU = 0x12;    // Alt键
+        public const byte VK_SHIFT = 0x10;
+        public const byte VK_LWIN = 0x5B;    // 左 Windows 键
+        public const byte VK_RWIN = 0x5C;    // 右 Windows 键
+        public const byte VK_P = 0x50;       // P 键
+                                             // --- 键盘事件标志 (用于 keybd_event 函数) ---
+        public const uint KEYEVENTF_EXTENDEDKEY = 0x0001;  // 指示扩展键 (例如箭头键、功能键等)
+        public const uint KEYEVENTF_KEYUP = 0x0002;        // 指示按键释放
+
+        // --- SendInput 相关结构体和常量 ---
+        [StructLayout(LayoutKind.Sequential)]
+        public struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MOUSEINPUT
+        {
+            public int dx;
+            public int dy;
+            public uint mouseData;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct HARDWAREINPUT
+        {
+            public uint uMsg;
+            public ushort wParamL;
+            public ushort wParamH;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        public struct INPUT_UNION
+        {
+            [FieldOffset(0)] public MOUSEINPUT mi;
+            [FieldOffset(0)] public KEYBDINPUT ki;
+            [FieldOffset(0)] public HARDWAREINPUT hi;
+        }
+
+        public struct INPUT
+        {
+            public uint type; // 0 = MOUSE, 1 = KEYBOARD, 2 = HARDWARE
+            public INPUT_UNION u;
+        }
+
+        public const uint INPUT_KEYBOARD = 1;
+        public const uint KEYEVENTF_KEYDOWN = 0x0000;
+        public const uint KEYEVENTF_SCANCODE = 0x0008;
+        public const uint KEYEVENTF_UNICODE = 0x0004;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetMessageExtraInfo();
 
         // --- Windows API 函数导入 ---
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         public static extern IntPtr SendMessageW(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)] // 使用 CharSet.Auto 自动处理 ANSI/Unicode
+        public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, [MarshalAs(UnmanagedType.LPWStr)] string lParam); // lParam 作为 LPWStr 发送 Unicode 字符串
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
@@ -128,6 +210,127 @@ namespace MusicBridge
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool DestroyWindow(IntPtr hwnd); // 销毁窗口 (用于 HwndHost)
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string? lpszWindow);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetFocus(IntPtr hWnd);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool EnumChildWindows(IntPtr hwndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        [DllImport("user32.dll")]
+        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+        // 获取当前拥有键盘焦点的窗口句柄
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetFocus();
+
+        // 获取指定窗口的父窗口句柄
+        [DllImport("user32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
+        public static extern IntPtr GetParent(IntPtr hWnd);
+
+        /// <summary>
+        /// 异步释放常用的修饰键 (Ctrl, Alt, Shift, Win)。
+        /// </summary>
+        public static async Task ReleaseAllModifierKeysAsync()
+        {
+            byte[] modifierKeys = { VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN };
+            foreach (byte key in modifierKeys)
+            {
+                // 发送抬起事件，以防万一按键被卡住
+                keybd_event(key, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            }
+            await Task.Delay(30); // 短暂等待
+        }
+
+        /// <summary>
+        /// 异步模拟单个按键的按下和抬起。
+        /// </summary>
+        /// <param name="vkCode">要模拟的虚拟键码。</param>
+        public static async Task SendKeyPressAsync(byte vkCode)
+        {
+            keybd_event(vkCode, 0, KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero); // 按下
+            await Task.Delay(30); // 模拟短暂按住
+            keybd_event(vkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero); // 抬起
+        }
+
+        /// <summary>
+        /// 异步模拟组合键 (例如 Ctrl+Right)。
+        /// </summary>
+        /// <param name="modifierVkCode">修饰键的虚拟键码 (例如 VK_CONTROL)。</param>
+        /// <param name="vkCode">普通键的虚拟键码 (例如 VK_RIGHT)。</param>
+        public static async Task SendCombinedKeyPressAsync(byte modifierVkCode, byte vkCode)
+        {
+            keybd_event(modifierVkCode, 0, KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero); // 按下修饰键
+            await Task.Delay(30);
+            keybd_event(vkCode, 0, KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero);         // 按下普通键
+            await Task.Delay(30);
+            keybd_event(vkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero); // 抬起普通键
+            await Task.Delay(30);
+            keybd_event(modifierVkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero); // 抬起修饰键
+        }
+
+        // --- 新增：使用 SendInput 模拟组合键 --- 
+        public static async Task SimulateKeyPressWithModifiers(List<ushort> modifierKeys, ushort primaryKey)
+        {
+            List<INPUT> inputs = new List<INPUT>();
+            IntPtr extraInfo = GetMessageExtraInfo();
+
+            // 1. 按下所有修饰键
+            foreach (var modKey in modifierKeys)
+            {
+                inputs.Add(new INPUT
+                {
+                    type = INPUT_KEYBOARD,
+                    u = new INPUT_UNION { ki = new KEYBDINPUT { wVk = modKey, dwFlags = KEYEVENTF_KEYDOWN, dwExtraInfo = extraInfo } }
+                });
+            }
+
+            // 2. 按下主键
+            inputs.Add(new INPUT
+            {
+                type = INPUT_KEYBOARD,
+                u = new INPUT_UNION { ki = new KEYBDINPUT { wVk = primaryKey, dwFlags = KEYEVENTF_KEYDOWN, dwExtraInfo = extraInfo } }
+            });
+
+            // 3. 释放主键
+            inputs.Add(new INPUT
+            {
+                type = INPUT_KEYBOARD,
+                u = new INPUT_UNION { ki = new KEYBDINPUT { wVk = primaryKey, dwFlags = KEYEVENTF_KEYUP, dwExtraInfo = extraInfo } }
+            });
+
+            // 4. 释放所有修饰键 (按相反顺序释放可能更稳妥)
+            modifierKeys.Reverse(); // 反转列表
+            foreach (var modKey in modifierKeys)
+            {
+                inputs.Add(new INPUT
+                {
+                    type = INPUT_KEYBOARD,
+                    u = new INPUT_UNION { ki = new KEYBDINPUT { wVk = modKey, dwFlags = KEYEVENTF_KEYUP, dwExtraInfo = extraInfo } }
+                });
+            }
+
+            // 发送输入
+            uint result = SendInput((uint)inputs.Count, inputs.ToArray(), Marshal.SizeOf(typeof(INPUT)));
+            if (result == 0)
+            {
+                int errorCode = Marshal.GetLastWin32Error();
+                Debug.WriteLine($"[SimulateKeyPressWithModifiers] SendInput failed with error code: {errorCode}");
+                // 可以考虑抛出异常或返回 false
+            }
+            else
+            {
+                Debug.WriteLine($"[SimulateKeyPressWithModifiers] SendInput succeeded for primary key {primaryKey} with {modifierKeys.Count} modifiers.");
+            }
+            // SendInput 是同步的，但我们保持 async Task 签名以防未来需要延迟
+            await Task.CompletedTask; 
+        }
 
         // 查找主窗口方法 (保持不变，用于初始查找)
         public static IntPtr FindMainWindow(string processName)

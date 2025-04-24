@@ -1,6 +1,7 @@
 using MusicBridge.Controllers;
 using System.Diagnostics;
 using System.IO;
+using System.Text; // 引入 StringBuilder
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -50,6 +51,9 @@ namespace MusicBridge
                 this.Closing += MainWindow_Closing;
                 // 窗口加载后执行初始操作
                 Loaded += MainWindow_Loaded;
+
+                // ***新增：初始化时隐藏 AppHostControl***
+                AppHostControl.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {
@@ -81,7 +85,6 @@ namespace MusicBridge
             await RefreshMusicAppStatusAsync();
         }
 
-
         // 窗口关闭中
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
@@ -102,11 +105,19 @@ namespace MusicBridge
             // 定期刷新状态
             await RefreshMusicAppStatusAsync();
 
-            // 额外检查：如果记录了嵌入句柄，但该窗口已失效，则自动分离
-            if (_embeddedWindowHandle != IntPtr.Zero && !WinAPI.IsWindow(_embeddedWindowHandle))
+            // 额外检查：如果记录了嵌入句柄，但该窗口已失效或父窗口不再是 AppHost，则自动分离
+            if (_embeddedWindowHandle != IntPtr.Zero)
             {
-                Debug.WriteLine($"[定时器] 检测到嵌入窗口句柄 {_embeddedWindowHandle} 已失效，自动分离。");
-                await Dispatcher.InvokeAsync(DetachEmbeddedWindow); // 确保在 UI 线程分离
+                bool isValid = WinAPI.IsWindow(_embeddedWindowHandle);
+                // 可选：更严格的检查，需要 AppHostControl 暴露其 Handle
+                // bool isParentCorrect = isValid && AppHostControl.Handle != IntPtr.Zero && WinAPI.GetParent(_embeddedWindowHandle) == AppHostControl.Handle;
+                // if (!isValid || !isParentCorrect)
+
+                if (!isValid) // 简化检查：仅检查窗口是否有效
+                {
+                    Debug.WriteLine($"[定时器] 检测到嵌入窗口句柄 {_embeddedWindowHandle} 已失效，自动分离。");
+                    await Dispatcher.InvokeAsync(DetachEmbeddedWindow); // 确保在 UI 线程分离
+                }
             }
         }
 
@@ -139,8 +150,6 @@ namespace MusicBridge
             }
         }
 
-        // --- 按钮事件处理 ---
-
         // “启动并嵌入”按钮点击
         private async void LaunchAndEmbedButton_Click(object sender, RoutedEventArgs e)
         {
@@ -154,7 +163,7 @@ namespace MusicBridge
             }
 
             UpdateStatus($"正在启动 {currentController.Name} ...");
-            SetInteractionButtonsEnabled(false); // 禁用交互按钮
+            SetInteractionButtonsEnabled(false, false, false); // 禁用交互按钮
 
             // 1. 启动进程 (如果未运行)
             if (!currentController.IsRunning())
@@ -174,7 +183,6 @@ namespace MusicBridge
                 UpdateStatus($"{currentController.Name} 已在运行，尝试查找窗口...");
             }
 
-
             // 2. 查找主窗口句柄 (尝试多次)
             IntPtr targetHwnd = IntPtr.Zero;
             for (int i = 0; i < 5; i++) // 尝试 5 次
@@ -193,6 +201,8 @@ namespace MusicBridge
                 // AppHost 操作需要回到 UI 线程
                 await Dispatcher.InvokeAsync(() =>
                 {
+                    // ***新增：嵌入前确保 AppHost 可见***
+                    AppHostControl.Visibility = Visibility.Visible;
                     success = AppHostControl.EmbedWindow(targetHwnd);
                 });
 
@@ -204,12 +214,16 @@ namespace MusicBridge
                 else
                 {
                     _embeddedWindowHandle = IntPtr.Zero;
+                    // ***新增：嵌入失败时隐藏 AppHost***
+                    AppHostControl.Visibility = Visibility.Collapsed;
                     UpdateStatus($"嵌入 {currentController.Name} 失败。");
                     MessageBox.Show($"嵌入 {currentController.Name} 失败。\n可能原因：\n- 权限不足 (尝试以管理员运行本程序)\n- 目标应用窗口结构不兼容\n- 目标应用有反嵌入机制", "嵌入失败", MessageBoxButton.OK);
                 }
             }
             else
             {
+                // ***新增：找不到窗口时确保 AppHost 隐藏***
+                AppHostControl.Visibility = Visibility.Collapsed;
                 UpdateStatus($"未能找到 {currentController.Name} 的主窗口，无法嵌入。");
             }
 
@@ -222,18 +236,25 @@ namespace MusicBridge
         {
             if (_embeddedWindowHandle == IntPtr.Zero) { UpdateStatus("没有窗口被嵌入。"); return; }
 
-            DetachEmbeddedWindow();
+            DetachEmbeddedWindow(); // 调用包含隐藏逻辑的分离方法
             UpdateStatus("窗口已分离。");
             // 刷新状态以更新按钮可用性
-            RefreshMusicAppStatusAsync();
+            RefreshMusicAppStatusAsync(); // 注意：这里是异步方法，但事件处理程序是同步的。如果 Refresh 需要很长时间，考虑改为 async void 或 Task.Run
         }
 
         // 封装的分离逻辑 (可在 UI 线程调用)
         private void DetachEmbeddedWindow()
         {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(DetachEmbeddedWindow); // 同步调用确保执行完毕
+                return;
+            }
             AppHostControl?.RestoreHostedWindow(); // AppHost 负责恢复窗口
             _embeddedWindowHandle = IntPtr.Zero; // 清除记录
-            Debug.WriteLine("嵌入窗口已分离。");
+            // ***新增：分离后隐藏 AppHostControl***
+            AppHostControl.Visibility = Visibility.Collapsed;
+            Debug.WriteLine("嵌入窗口已分离，AppHost 已隐藏。");
         }
 
         // “关闭嵌入的应用”按钮点击
@@ -246,7 +267,7 @@ namespace MusicBridge
             if (result != MessageBoxResult.Yes) return;
 
             UpdateStatus($"正在关闭 {currentController.Name}...");
-            SetInteractionButtonsEnabled(false); // 禁用交互按钮
+            SetInteractionButtonsEnabled(false, false, false); // 禁用交互按钮
 
             // 先分离，再关闭
             DetachEmbeddedWindow();
@@ -259,8 +280,6 @@ namespace MusicBridge
             await RefreshMusicAppStatusAsync();
         }
 
-
-        // --- 媒体控制按钮 ---
         // 封装发送命令逻辑
         private async Task SendMediaCommandAsync(MediaCommand command)
         {
@@ -306,9 +325,6 @@ namespace MusicBridge
         private async void VolumeDownButton_Click(object sender, RoutedEventArgs e) => await SendMediaCommandAsync(MediaCommand.VolumeDown);
         private async void MuteButton_Click(object sender, RoutedEventArgs e) => await SendMediaCommandAsync(MediaCommand.VolumeMute);
 
-
-        // --- 状态刷新和 UI 更新 ---
-
         // 刷新音乐应用状态 (异步)
         private async Task RefreshMusicAppStatusAsync()
         {
@@ -318,7 +334,7 @@ namespace MusicBridge
                 {
                     CurrentSongTextBlock.Text = "歌曲: N/A";
                     UpdateStatus("请选择播放器");
-                    SetInteractionButtonsEnabled(false);
+                    SetInteractionButtonsEnabled(false, false, false);
                     SetMediaButtonsEnabled(false);
                 });
                 return;
@@ -338,21 +354,36 @@ namespace MusicBridge
                 if (isEmbedded && !isRunning)
                 {
                     Debug.WriteLine($"[刷新状态] 检测到嵌入窗口的进程已停止，执行分离。");
+                    // ***修改：调用包含隐藏逻辑的分离方法***
                     await Dispatcher.InvokeAsync(DetachEmbeddedWindow);
                     isEmbedded = false; // 更新本地状态
                     status += "已停止 (自动分离)";
+                }
+                // ***新增：如果记录为嵌入，但窗口句柄失效，也执行分离***
+                else if (isEmbedded && !WinAPI.IsWindow(_embeddedWindowHandle))
+                {
+                    Debug.WriteLine($"[刷新状态] 检测到嵌入窗口句柄 {_embeddedWindowHandle} 已失效，执行分离。");
+                    await Dispatcher.InvokeAsync(DetachEmbeddedWindow);
+                    isEmbedded = false;
+                    status += "窗口失效 (自动分离)";
                 }
                 else if (isRunning)
                 {
                     status += isEmbedded ? "已嵌入" : "运行中 (未嵌入)";
                     // 获取歌曲信息，传递当前有效的窗口句柄
                     IntPtr songTargetHwnd = isEmbedded ? _embeddedWindowHandle : WinAPI.FindMainWindow(currentController.ProcessName);
-                    song = currentController.GetCurrentSong(songTargetHwnd);
+                    // 增加判断，防止在窗口句柄无效时调用 GetCurrentSong 导致错误
+                    if (WinAPI.IsWindow(songTargetHwnd))
+                    {
+                        song = currentController.GetCurrentSong(songTargetHwnd);
+                    } else {
+                        song = "窗口无效";
+                    }
                 }
                 else // 未运行
                 {
                     status += "未运行";
-                    // 确保如果未运行，则嵌入句柄也清空
+                    // 确保如果未运行，则嵌入句柄也清空，并隐藏 AppHost
                     if (_embeddedWindowHandle != IntPtr.Zero)
                     {
                         await Dispatcher.InvokeAsync(DetachEmbeddedWindow);
@@ -364,8 +395,15 @@ namespace MusicBridge
                 {
                     CurrentSongTextBlock.Text = $"歌曲: {song}";
                     UpdateStatus(status);
-                    SetInteractionButtonsEnabled(currentController != null); // 基本交互按钮（启动、分离、关闭）根据控制器和状态启用
+                    // ***修改：交互按钮的启用逻辑现在也依赖 isEmbedded 状态***
+                    SetInteractionButtonsEnabled(currentController != null, isEmbedded, isRunning);
                     SetMediaButtonsEnabled(isRunning); // 媒体控制按钮根据是否运行启用
+
+                    // ***新增：根据是否嵌入决定 AppHost 的可见性（双重保险）***
+                    // AppHostControl.Visibility = isEmbedded ? Visibility.Visible : Visibility.Collapsed;
+                    // 注意：上面的显式设置可能与 DetachEmbeddedWindow 中的隐藏冲突或冗余，
+                    // 依赖 DetachEmbeddedWindow 和 EmbedWindow 中的设置通常足够。
+                    // 如果仍有问题，可以取消注释上面这行。
                 });
             }
             catch (Exception ex)
@@ -375,7 +413,9 @@ namespace MusicBridge
                 // 出错时保守处理，禁用大部分按钮
                 await Dispatcher.InvokeAsync(() =>
                 {
-                    SetInteractionButtonsEnabled(false);
+                    // 出错时也尝试隐藏 AppHost
+                    AppHostControl.Visibility = Visibility.Collapsed;
+                    SetInteractionButtonsEnabled(false, false, false); // 禁用所有交互
                     SetMediaButtonsEnabled(false);
                     MusicAppComboBox.IsEnabled = true; // 允许切换
                 });
@@ -395,21 +435,25 @@ namespace MusicBridge
         }
 
         // 设置交互按钮（启动/嵌入、分离、关闭）的启用状态
-        private void SetInteractionButtonsEnabled(bool controllerSelected)
+        // ***修改：增加 isEmbedded 和 isRunning 参数***
+        private void SetInteractionButtonsEnabled(bool controllerSelected, bool isEmbedded, bool isRunning)
         {
-            if (!Dispatcher.CheckAccess()) { Dispatcher.InvokeAsync(() => SetInteractionButtonsEnabled(controllerSelected)); return; }
+            if (!Dispatcher.CheckAccess()) { Dispatcher.InvokeAsync(() => SetInteractionButtonsEnabled(controllerSelected, isEmbedded, isRunning)); return; }
 
-            bool canLaunchEmbed = controllerSelected && _embeddedWindowHandle == IntPtr.Zero && currentController?.ExecutablePath != null;
+            // 启动/嵌入按钮：需要选中控制器，当前未嵌入，且控制器路径有效
+            bool canLaunchEmbed = controllerSelected && !isEmbedded && currentController?.ExecutablePath != null;
             LaunchAndEmbedButton.IsEnabled = canLaunchEmbed;
 
-            bool canDetach = controllerSelected && _embeddedWindowHandle != IntPtr.Zero;
+            // 分离按钮：需要选中控制器且当前已嵌入
+            bool canDetach = controllerSelected && isEmbedded;
             DetachButton.IsEnabled = canDetach;
 
-            bool canCloseEmbedded = controllerSelected && _embeddedWindowHandle != IntPtr.Zero;
+            // 关闭嵌入应用按钮：需要选中控制器且当前已嵌入
+            bool canCloseEmbedded = controllerSelected && isEmbedded;
             CloseEmbeddedAppButton.IsEnabled = canCloseEmbedded;
 
-            // 下拉框通常总是可用
-            MusicAppComboBox.IsEnabled = true;
+            // 下拉框通常总是可用，但在嵌入时可以考虑禁用，防止误操作切换
+            MusicAppComboBox.IsEnabled = !isEmbedded; // 嵌入时禁用切换
         }
 
         // 设置媒体控制按钮的启用状态
@@ -423,6 +467,78 @@ namespace MusicBridge
             VolumeUpButton.IsEnabled = isRunning;
             VolumeDownButton.IsEnabled = isRunning;
             MuteButton.IsEnabled = isRunning;
+        }
+
+        // “搜索”按钮点击事件 (修改为发送到焦点控件)
+        private void SearchButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_embeddedWindowHandle == IntPtr.Zero || !WinAPI.IsWindow(_embeddedWindowHandle))
+            {
+                UpdateStatus("错误：没有有效的嵌入窗口。");
+                return;
+            }
+
+            string searchText = SearchTextBox.Text;
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                UpdateStatus("请输入搜索内容。");
+                return;
+            }
+
+            // 1. 获取当前拥有键盘焦点的控件句柄
+            IntPtr focusedHandle = WinAPI.GetFocus();
+
+            if (focusedHandle == IntPtr.Zero)
+            {
+                UpdateStatus("错误：无法获取当前焦点控件。");
+                return;
+            }
+
+            // 2. 验证焦点控件是否属于嵌入窗口
+            if (!IsDescendant(_embeddedWindowHandle, focusedHandle))
+            {
+                UpdateStatus("错误：当前焦点不在嵌入的应用窗口内。请先点击嵌入应用的搜索框。");
+                MessageBox.Show("请先用鼠标点击嵌入应用（如QQ音乐）内的搜索框，使其获得焦点，然后再点击本程序的“搜索”按钮。", "操作提示", MessageBoxButton.OK);
+                return;
+            }
+
+            UpdateStatus($"焦点控件 {focusedHandle} 属于嵌入窗口，正在发送文本 '{searchText}'...");
+
+            // 3. 使用 WM_SETTEXT 发送文本到焦点控件
+            // 注意：WM_SETTEXT 可能不适用于所有控件类型，特别是自定义绘制的控件。
+            // 如果 WM_SETTEXT 无效，备选方案是模拟键盘输入 (SendInput)，但这更复杂。
+            IntPtr setResult = WinAPI.SendMessage(focusedHandle, WinAPI.WM_SETTEXT, IntPtr.Zero, searchText);
+            Debug.WriteLine($"WM_SETTEXT 发送结果: {setResult}");
+            // 短暂等待文本设置生效
+            System.Threading.Thread.Sleep(100);
+
+            // 4. 模拟按下回车键 (Enter) 到焦点控件
+            WinAPI.SendMessage(focusedHandle, WinAPI.WM_KEYDOWN, (IntPtr)WinAPI.VK_RETURN, IntPtr.Zero);
+            System.Threading.Thread.Sleep(50);
+            WinAPI.SendMessage(focusedHandle, WinAPI.WM_KEYUP, (IntPtr)WinAPI.VK_RETURN, IntPtr.Zero);
+
+            UpdateStatus($"已向焦点控件发送 '{searchText}' 并模拟回车。");
+        }
+
+        // 辅助方法：检查 handleToCheck 是否是 parentHandle 的子孙控件
+        private bool IsDescendant(IntPtr parentHandle, IntPtr handleToCheck)
+        {
+            if (parentHandle == IntPtr.Zero || handleToCheck == IntPtr.Zero)
+                return false;
+            // 如果句柄相同，也算（虽然不太可能，焦点通常在子控件上）
+            if (parentHandle == handleToCheck) 
+                return true; 
+
+            IntPtr currentParent = handleToCheck;
+            while (currentParent != IntPtr.Zero)
+            {
+                currentParent = WinAPI.GetParent(currentParent);
+                if (currentParent == parentHandle)
+                {
+                    return true; // 找到了祖先是嵌入窗口
+                }
+            }
+            return false; // 循环结束没找到
         }
     }
 }

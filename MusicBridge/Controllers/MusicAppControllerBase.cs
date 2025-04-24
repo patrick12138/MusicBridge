@@ -7,7 +7,7 @@ using MusicBridge.Controllers;
 
 namespace MusicBridge
 {
-    // 控制器基类 (保持大部分查找和启停逻辑)
+    // 控制器基类
     public abstract class MusicAppControllerBase : IMusicAppController
     {
         public abstract string Name { get; }
@@ -161,7 +161,6 @@ namespace MusicBridge
             }
             await Task.Delay(500);
         }
-
 
         // --- 控制和获取信息逻辑改变 ---
 
