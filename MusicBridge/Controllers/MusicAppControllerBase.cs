@@ -132,12 +132,15 @@ namespace MusicBridge
                 await Task.Delay(500); // 短暂等待
                 Debug.WriteLine($"[{Name}] 启动命令已发送。");
             }
-            catch (Exception ex) { /* ... (错误处理) ... */ }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{Name}] 启动失败: {ex.Message}");
+                MessageBox.Show($"启动 {Name} 时发生错误: {ex.Message}", "启动失败", MessageBoxButton.OK);
+            }
         }
 
         public virtual async Task CloseAppAsync()
         {
-            // --- 保持之前的优雅关闭逻辑 ---
             Process[] processes = Process.GetProcessesByName(ProcessName);
             if (processes.Length == 0) return;
             Debug.WriteLine($"[{Name}] 尝试关闭 {processes.Length} 个进程...");
@@ -163,7 +166,6 @@ namespace MusicBridge
             await Task.Delay(500);
         }
 
-        // --- 控制和获取信息逻辑改变 ---
 
         // 发送命令：直接向目标窗口发送 WM_APPCOMMAND 消息
         public virtual async Task SendCommandAsync(IntPtr targetHwnd, MediaCommand command)
