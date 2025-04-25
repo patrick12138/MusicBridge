@@ -15,7 +15,7 @@ namespace MusicBridge.Utils.UI
         private readonly Dispatcher _dispatcher;
         private readonly Action<string> _updateStatus;
         private readonly WindowEmbedManager _windowEmbedManager;
-        private readonly MediaPlayerHandler _mediaPlayerHandler;
+
         
         private IMusicApp _currentController;
 
@@ -25,13 +25,13 @@ namespace MusicBridge.Utils.UI
         public AppSwitchManager(
             Dispatcher dispatcher, 
             Action<string> updateStatus, 
-            WindowEmbedManager windowEmbedManager,
-            MediaPlayerHandler mediaPlayerHandler)
+            WindowEmbedManager windowEmbedManager
+            )
         {
             _dispatcher = dispatcher;
             _updateStatus = updateStatus;
             _windowEmbedManager = windowEmbedManager;
-            _mediaPlayerHandler = mediaPlayerHandler;
+           
         }
 
         /// <summary>
@@ -132,7 +132,7 @@ namespace MusicBridge.Utils.UI
                 // 如果应用正在运行，关闭它
                 if (_currentController.IsRunning())
                 {
-                    _mediaPlayerHandler.CloseApp(_currentController);
+                   await _currentController.CloseAppAsync();
                     _updateStatus($"已关闭 {_currentController.Name}");
                     
                     // 等待进程确实关闭

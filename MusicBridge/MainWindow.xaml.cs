@@ -1,11 +1,8 @@
 using MusicBridge.Controllers;
-using MusicBridge.Utils;
 using MusicBridge.Utils.UI;
 using MusicBridge.Utils.Window;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -20,7 +17,6 @@ namespace MusicBridge
 
         // 辅助类实例
         private readonly WindowEmbedManager _windowEmbedManager;
-        private readonly MediaPlayerHandler _mediaPlayerHandler;
         private readonly UIStateManager _uiStateManager;
         private readonly AppIconSelector _appIconSelector;
         private readonly AppSwitchManager _appSwitchManager; // 新增：应用切换管理器
@@ -58,9 +54,7 @@ namespace MusicBridge
             // 重要：设置互相引用关系，使加载提示功能正常工作
             _windowEmbedManager.SetUIStateManager(_uiStateManager);
 
-            _mediaPlayerHandler = new MediaPlayerHandler(
-                Dispatcher,
-                _uiStateManager.UpdateStatus);
+         
                 
             // 初始化应用图标选择器
             _appIconSelector = new AppIconSelector();
@@ -72,8 +66,8 @@ namespace MusicBridge
             _appSwitchManager = new AppSwitchManager(
                 Dispatcher,
                 _uiStateManager.UpdateStatus,
-                _windowEmbedManager,
-                _mediaPlayerHandler);
+                _windowEmbedManager
+                );
 
             // --- 初始化控制器列表 ---
             try
@@ -132,6 +126,14 @@ namespace MusicBridge
         // 窗口关闭中
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            // 提示用户确保已退出账号
+            MessageBoxResult result = MessageBox.Show("请确保已退出所有音乐应用的账号再关闭此软件。是否继续关闭？", "关闭提醒", MessageBoxButton.YesNo);
+            if (result == MessageBoxResult.No)
+            {
+                e.Cancel = true; // 取消关闭操作
+                return;
+            }
+
             // 直接关闭所有音乐应用
             CloseAllMusicApps();
     
@@ -155,7 +157,7 @@ namespace MusicBridge
                 // 关闭所有运行中的音乐应用
                 foreach (var app in runningApps)
                 {
-                    _mediaPlayerHandler.CloseApp(app);
+                    app.CloseAppAsync();
                 }
             }
         }
@@ -190,19 +192,19 @@ namespace MusicBridge
         }
 
         // "分离窗口"按钮点击
-        private void DetachButton_Click(object sender, RoutedEventArgs e)
+        private async void DetachButton_Click(object sender, RoutedEventArgs e)
         {
-            if (!_windowEmbedManager.IsWindowEmbedded) 
-            { 
-                _uiStateManager.UpdateStatus("没有窗口被嵌入。"); 
-                return; 
+            if (!_windowEmbedManager.IsWindowEmbedded)
+            {
+                _uiStateManager.UpdateStatus("没有窗口被嵌入。");
+                return;
             }
 
             _windowEmbedManager.DetachEmbeddedWindow();
             _uiStateManager.UpdateStatus("窗口已分离。");
             
             // 刷新状态以更新按钮可用性
-            RefreshMusicAppStatusAsync();
+            await RefreshMusicAppStatusAsync();
         }
 
         // 封装发送命令逻辑
@@ -229,7 +231,7 @@ namespace MusicBridge
             }
 
             // 发送命令
-            await _mediaPlayerHandler.SendMediaCommandAsync(currentController, targetHwnd, command);
+            await currentController.SendCommandAsync(targetHwnd, command);
             
             // 命令发送后刷新状态
             await RefreshMusicAppStatusAsync();
@@ -358,6 +360,13 @@ namespace MusicBridge
         // CloseAppButton_Click事件 - 处理关闭当前音乐应用按钮点击
         private async void CloseAppButton_Click(object sender, RoutedEventArgs e)
         {
+            // 提示用户确保已退出账号
+            MessageBoxResult result = MessageBox.Show($"请确保已退出 {_appSwitchManager.CurrentController?.Name ?? "当前音乐应用"} 的账号再关闭。是否继续关闭？", "关闭提醒", MessageBoxButton.YesNo);
+            if (result == MessageBoxResult.No)
+            {
+                return; // 取消关闭操作
+            }
+
             // 使用应用切换管理器关闭当前应用
             await _appSwitchManager.CloseCurrentAppAsync();
             
