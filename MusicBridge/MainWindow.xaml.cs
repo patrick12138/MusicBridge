@@ -1,12 +1,8 @@
 using MusicBridge.Controllers;
-using MusicBridge.Utils;
 using MusicBridge.Utils.UI;
 using MusicBridge.Utils.Window;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -130,6 +126,14 @@ namespace MusicBridge
         // 窗口关闭中
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            // 提示用户确保已退出账号
+            MessageBoxResult result = MessageBox.Show("请确保已退出所有音乐应用的账号再关闭此软件。是否继续关闭？", "关闭提醒", MessageBoxButton.YesNo);
+            if (result == MessageBoxResult.No)
+            {
+                e.Cancel = true; // 取消关闭操作
+                return;
+            }
+
             // 直接关闭所有音乐应用
             CloseAllMusicApps();
     
@@ -356,6 +360,13 @@ namespace MusicBridge
         // CloseAppButton_Click事件 - 处理关闭当前音乐应用按钮点击
         private async void CloseAppButton_Click(object sender, RoutedEventArgs e)
         {
+            // 提示用户确保已退出账号
+            MessageBoxResult result = MessageBox.Show($"请确保已退出 {_appSwitchManager.CurrentController?.Name ?? "当前音乐应用"} 的账号再关闭。是否继续关闭？", "关闭提醒", MessageBoxButton.YesNo);
+            if (result == MessageBoxResult.No)
+            {
+                return; // 取消关闭操作
+            }
+
             // 使用应用切换管理器关闭当前应用
             await _appSwitchManager.CloseCurrentAppAsync();
             
