@@ -15,6 +15,7 @@ namespace MusicBridge.Utils
         private readonly Dispatcher _dispatcher;
         private readonly Action<string> _updateStatus;
         private readonly AppHost _appHost;
+        private UIStateManager _uiStateManager; // 新增：UI状态管理器引用
 
         private IntPtr _embeddedWindowHandle = IntPtr.Zero;
         
@@ -39,6 +40,14 @@ namespace MusicBridge.Utils
         }
         
         /// <summary>
+        /// 设置UI状态管理器引用
+        /// </summary>
+        public void SetUIStateManager(UIStateManager uiStateManager)
+        {
+            _uiStateManager = uiStateManager;
+        }
+        
+        /// <summary>
         /// Launches and embeds the specified music application
         /// </summary>
         public async Task<bool> LaunchAndEmbedAsync(IMusicAppController controller)
@@ -56,65 +65,92 @@ namespace MusicBridge.Utils
                 return false;
             }
 
+            // 显示加载提示
+            _uiStateManager?.ShowLoadingOverlay(controller.Name);
             _updateStatus($"正在启动 {controller.Name} ...");
 
-            // 1. 启动进程 (如果未运行)
-            if (!controller.IsRunning())
+            try
             {
-                await controller.LaunchAsync();
-                await Task.Delay(5000); // 等待较长时间让窗口创建
-            }
-            else
-            {
-                // 如果已运行，确保窗口不是最小化
-                IntPtr existingHwnd = WinAPI.FindMainWindow(controller.ProcessName);
-                if (existingHwnd != IntPtr.Zero && WinAPI.IsIconic(existingHwnd))
+                // 1. 启动进程 (如果未运行)
+                if (!controller.IsRunning())
                 {
-                    WinAPI.ShowWindow(existingHwnd, WinAPI.SW_RESTORE);
-                    await Task.Delay(500); // 等待窗口恢复
-                }
-                _updateStatus($"{controller.Name} 已在运行，尝试查找窗口...");
-            }
-
-            // 2. 查找主窗口句柄 (尝试多次)
-            IntPtr targetHwnd = IntPtr.Zero;
-            for (int i = 0; i < 5; i++) // 尝试 5 次
-            {
-                targetHwnd = WinAPI.FindMainWindow(controller.ProcessName);
-                if (targetHwnd != IntPtr.Zero) break; // 找到即退出循环
-                Debug.WriteLine($"第 {i + 1} 次查找 {controller.Name} 窗口失败，等待 1 秒后重试...");
-                await Task.Delay(1000);
-            }
-
-            // 3. 尝试嵌入
-            if (targetHwnd != IntPtr.Zero)
-            {
-                _updateStatus($"找到窗口 {targetHwnd}，正在嵌入...");
-                bool success = false;
-                
-                // AppHost 操作需要回到 UI 线程
-                await _dispatcher.InvokeAsync(() =>
-                {
-                    success = _appHost.EmbedWindow(targetHwnd);
-                });
-
-                if (success)
-                {
-                    _embeddedWindowHandle = targetHwnd; // 记录嵌入的句柄
-                    _updateStatus($"{controller.Name} 已嵌入。");
-                    return true;
+                    await controller.LaunchAsync();
+                    
+                    // 等待应用启动和创建窗口
+                    // 显示正在等待创建窗口的消息
+                    _updateStatus($"等待 {controller.Name} 创建窗口，请稍候...");
+                    await Task.Delay(5000); // 等待较长时间让窗口创建
                 }
                 else
                 {
-                    _embeddedWindowHandle = IntPtr.Zero;
-                    _updateStatus($"嵌入 {controller.Name} 失败。");
-                    MessageBox.Show($"嵌入 {controller.Name} 失败。\n可能原因：\n- 权限不足 (尝试以管理员运行本程序)\n- 目标应用窗口结构不兼容\n- 目标应用有反嵌入机制", "嵌入失败", MessageBoxButton.OK);
+                    // 如果已运行，确保窗口不是最小化
+                    IntPtr existingHwnd = WinAPI.FindMainWindow(controller.ProcessName);
+                    if (existingHwnd != IntPtr.Zero && WinAPI.IsIconic(existingHwnd))
+                    {
+                        WinAPI.ShowWindow(existingHwnd, WinAPI.SW_RESTORE);
+                        await Task.Delay(500); // 等待窗口恢复
+                    }
+                    _updateStatus($"{controller.Name} 已在运行，尝试查找窗口...");
+                }
+
+                // 2. 查找主窗口句柄 (尝试多次)
+                IntPtr targetHwnd = IntPtr.Zero;
+                for (int i = 0; i < 7; i++) // 增加尝试次数，从5次到7次
+                {
+                    targetHwnd = WinAPI.FindMainWindow(controller.ProcessName);
+                    if (targetHwnd != IntPtr.Zero) break; // 找到即退出循环
+                    
+                    // 更新等待提示，告知用户还在尝试
+                    _updateStatus($"第 {i + 1} 次查找 {controller.Name} 窗口，请稍候...");
+                    Debug.WriteLine($"第 {i + 1} 次查找 {controller.Name} 窗口失败，等待 1 秒后重试...");
+                    await Task.Delay(1000);
+                }
+
+                // 3. 尝试嵌入
+                if (targetHwnd != IntPtr.Zero)
+                {
+                    _updateStatus($"找到窗口 {targetHwnd}，正在嵌入...");
+                    bool success = false;
+                    
+                    // AppHost 操作需要回到 UI 线程
+                    await _dispatcher.InvokeAsync(() =>
+                    {
+                        success = _appHost.EmbedWindow(targetHwnd);
+                    });
+
+                    if (success)
+                    {
+                        _embeddedWindowHandle = targetHwnd; // 记录嵌入的句柄
+                        _updateStatus($"{controller.Name} 已嵌入。");
+                        // 隐藏加载提示
+                        _uiStateManager?.HideLoadingOverlay();
+                        return true;
+                    }
+                    else
+                    {
+                        _embeddedWindowHandle = IntPtr.Zero;
+                        _updateStatus($"嵌入 {controller.Name} 失败。");
+                        // 隐藏加载提示
+                        _uiStateManager?.HideLoadingOverlay();
+                        MessageBox.Show($"嵌入 {controller.Name} 失败。\n可能原因：\n- 权限不足 (尝试以管理员运行本程序)\n- 目标应用窗口结构不兼容\n- 目标应用有反嵌入机制", "嵌入失败", MessageBoxButton.OK);
+                        return false;
+                    }
+                }
+                else
+                {
+                    _updateStatus($"未能找到 {controller.Name} 的主窗口，无法嵌入。");
+                    // 隐藏加载提示
+                    _uiStateManager?.HideLoadingOverlay();
+                    MessageBox.Show($"未能找到 {controller.Name} 的主窗口。\n请确认应用是否已正常启动，可尝试手动启动后再使用重新嵌入功能。", "找不到窗口", MessageBoxButton.OK);
                     return false;
                 }
             }
-            else
+            catch (Exception ex)
             {
-                _updateStatus($"未能找到 {controller.Name} 的主窗口，无法嵌入。");
+                Debug.WriteLine($"[LaunchAndEmbedAsync] 错误: {ex}");
+                _updateStatus($"启动并嵌入应用时出错: {ex.Message}");
+                // 发生异常时也要隐藏加载提示
+                _uiStateManager?.HideLoadingOverlay();
                 return false;
             }
         }

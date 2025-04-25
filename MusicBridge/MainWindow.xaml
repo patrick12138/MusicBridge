@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:MusicBridge"
         xmlns:utils="clr-namespace:MusicBridge.Utils"
         mc:Ignorable="d"
-        Title="音乐桥接器 (嵌入版)" Height="600" Width="800"
+        Title="堂会音乐桥接" Height="600" Width="800"
         FocusVisualStyle="{x:Null}">
     <Grid>
         <Grid.RowDefinitions>
@@ -26,6 +26,16 @@
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock Text="请选择下方的音乐应用图标" FontSize="16" Margin="0,0,0,15" HorizontalAlignment="Center"/>
                         <TextBlock Text="点击图标自动启动并嵌入应用" FontSize="14" Margin="0,0,0,0" Foreground="#666666" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 新增：加载提示遮罩层，当应用正在启动和嵌入过程中显示 -->
+                <Border x:Name="LoadingOverlay" Background="#F5F5F5" Opacity="0.9" CornerRadius="5" Visibility="Collapsed">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock x:Name="LoadingText" Text="正在启动音乐应用，请稍候..." FontSize="16" Margin="0,0,0,20" HorizontalAlignment="Center"/>
+                        <ProgressBar Width="200" Height="5" IsIndeterminate="True" Margin="0,0,0,15"/>
+                        <TextBlock Text="应用启动和嵌入过程需要一些时间" FontSize="14" Margin="0,0,0,5" Foreground="#666666" HorizontalAlignment="Center"/>
+                        <TextBlock Text="请不要关闭本窗口或操作目标应用" FontSize="14" Margin="0,0,0,0" Foreground="#666666" HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Border>
             </Grid>

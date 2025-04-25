@@ -51,6 +51,9 @@ namespace MusicBridge
                 Dispatcher,
                 _uiStateManager.UpdateStatus,
                 AppHostControl);
+                
+            // 重要：设置互相引用关系，使加载提示功能正常工作
+            _windowEmbedManager.SetUIStateManager(_uiStateManager);
 
             _mediaPlayerHandler = new MediaPlayerHandler(
                 Dispatcher,

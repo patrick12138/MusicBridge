@@ -29,6 +29,10 @@ namespace MusicBridge.Utils
         private readonly FrameworkElement _operationOverlay;
         private readonly AppHost _appHost;
         
+        // 新增: 加载提示相关的控件引用
+        private FrameworkElement _loadingOverlay;
+        private TextBlock _loadingText;
+        
         // 记录应用状态，用于重新嵌入功能
         private bool _isControllerRunning = false;
         private bool _isDetached = false;
@@ -74,6 +78,10 @@ namespace MusicBridge.Utils
                 if (window != null)
                 {
                     _reEmbedButton = window.FindName("ReEmbedButton") as Button;
+                    
+                    // 新增: 查找加载提示相关控件
+                    _loadingOverlay = window.FindName("LoadingOverlay") as FrameworkElement;
+                    _loadingText = window.FindName("LoadingText") as TextBlock;
                 }
             }
         }
@@ -249,6 +257,64 @@ namespace MusicBridge.Utils
             _volumeUpButton.IsEnabled = isEnabled;
             _volumeDownButton.IsEnabled = isEnabled;
             _muteButton.IsEnabled = isEnabled;
+        }
+        
+        /// <summary>
+        /// 显示应用启动和嵌入等待提示
+        /// </summary>
+        /// <param name="appName">应用名称</param>
+        public void ShowLoadingOverlay(string appName)
+        {
+            if (!_dispatcher.CheckAccess())
+            {
+                _dispatcher.InvokeAsync(() => ShowLoadingOverlay(appName));
+                return;
+            }
+            
+            if (_loadingOverlay != null)
+            {
+                if (_loadingText != null)
+                {
+                    _loadingText.Text = $"正在启动 {appName}，请稍候...";
+                }
+                
+                _loadingOverlay.Visibility = Visibility.Visible;
+                _operationOverlay.Visibility = Visibility.Collapsed;
+                _appHost.Visibility = Visibility.Collapsed;
+                
+                Debug.WriteLine($"[UI状态] 显示加载提示: {appName}");
+            }
+        }
+        
+        /// <summary>
+        /// 隐藏应用启动和嵌入等待提示
+        /// </summary>
+        public void HideLoadingOverlay()
+        {
+            if (!_dispatcher.CheckAccess())
+            {
+                _dispatcher.InvokeAsync(HideLoadingOverlay);
+                return;
+            }
+            
+            if (_loadingOverlay != null)
+            {
+                _loadingOverlay.Visibility = Visibility.Collapsed;
+                
+                // 根据当前嵌入状态显示对应界面
+                if (_appHost.HostedAppWindowHandle != IntPtr.Zero)
+                {
+                    _operationOverlay.Visibility = Visibility.Collapsed;
+                    _appHost.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    _operationOverlay.Visibility = Visibility.Visible;
+                    _appHost.Visibility = Visibility.Collapsed;
+                }
+                
+                Debug.WriteLine("[UI状态] 隐藏加载提示");
+            }
         }
     }
 }

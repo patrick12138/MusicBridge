@@ -197,7 +197,7 @@ namespace MusicBridge
             }
         }
 
-        // 使用媒体控制键发送命令（从网易云音乐控制器中提取的有效方法）
+        // 使用媒体控制键发送命令
         protected virtual async Task<bool> SendMediaKeyCommandAsync(IntPtr hwnd, MediaCommand command)
         {
             try
@@ -313,29 +313,6 @@ namespace MusicBridge
                 }
             }
             return title.Trim(); // 没有匹配到后缀，返回原始标题
-        }
-
-        // 网易云可能需要特殊处理子窗口，可以在需要时添加
-        // 这里我们保留了递归查找子窗口的辅助方法
-        protected List<IntPtr> FindChildWindows(IntPtr parentHwnd)
-        {
-            List<IntPtr> result = new List<IntPtr>();
-            
-            WinAPI.EnumChildWindows(parentHwnd, (childHwnd, lParam) => {
-                StringBuilder className = new StringBuilder(256);
-                WinAPI.GetClassName(childHwnd, className, className.Capacity);
-                
-                // 仅记录类名为 CefBrowserWindow 的窗口，这是网易云音乐的主要内容窗口
-                if (className.ToString().Contains("CefBrowserWindow"))
-                {
-                    Debug.WriteLine($"[{Name}] 找到CEF浏览器窗口: {childHwnd}");
-                    result.Add(childHwnd);
-                }
-                
-                return true; // 继续枚举
-            }, IntPtr.Zero);
-            
-            return result;
         }
     }
 
