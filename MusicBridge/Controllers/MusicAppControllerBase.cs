@@ -20,7 +20,6 @@ namespace MusicBridge
 
         public virtual bool IsRunning() => Process.GetProcessesByName(ProcessName).Length > 0;
 
-        // --- 查找、启动、关闭逻辑基本不变 ---
         public async Task<string?> FindExecutablePathAsync()
         {
             if (_executablePath != null) return _executablePath;
