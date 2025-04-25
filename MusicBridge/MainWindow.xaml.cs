@@ -18,7 +18,6 @@ namespace MusicBridge
         // 辅助类实例
         private readonly WindowEmbedManager _windowEmbedManager;
         private readonly MediaPlayerHandler _mediaPlayerHandler;
-        private readonly SearchManager _searchManager;
         private readonly UIStateManager _uiStateManager;
         private readonly AppIconSelector _appIconSelector;
         private readonly AppSwitchManager _appSwitchManager; // 新增：应用切换管理器
@@ -54,10 +53,6 @@ namespace MusicBridge
                 AppHostControl);
 
             _mediaPlayerHandler = new MediaPlayerHandler(
-                Dispatcher,
-                _uiStateManager.UpdateStatus);
-
-            _searchManager = new SearchManager(
                 Dispatcher,
                 _uiStateManager.UpdateStatus);
                 
@@ -131,8 +126,131 @@ namespace MusicBridge
         // 窗口关闭中
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            // 直接关闭所有音乐应用
+            CloseAllMusicApps();
+
             // 尝试恢复（分离）当前嵌入的窗口
             _windowEmbedManager.DetachEmbeddedWindow();
+        }
+
+        // 退出前关闭所有音乐应用
+        private void CloseAllMusicApps()
+        {
+            // 获取所有正在运行的音乐应用
+            List<IMusicAppController> runningApps = controllers.Where(c => c.IsRunning()).ToList();
+
+            // 如果有运行中的音乐应用，关闭它们
+            if (runningApps.Count > 0)
+            {
+                // 输出日志
+                string appNames = string.Join(", ", runningApps.Select(c => c.Name));
+                Debug.WriteLine($"正在关闭音乐应用: {appNames}");
+                
+                // 关闭所有运行中的音乐应用
+                foreach (var app in runningApps)
+                {
+                    CloseAppProcess(app);
+                }
+                
+                // 等待应用完全关闭
+                WaitForAppClosing(runningApps);
+            }
+        }
+
+        // 关闭指定应用进程
+        private void CloseAppProcess(IMusicAppController controller)
+        {
+            try
+            {
+                Debug.WriteLine($"正在关闭应用: {controller.Name}");
+                Process[] processes = Process.GetProcessesByName(controller.ProcessName);
+                foreach (var process in processes)
+                {
+                    try
+                    {
+                        // 尝试正常关闭进程
+                        if (!process.HasExited)
+                        {
+                            // 先尝试发送关闭窗口消息
+                            IntPtr hwnd = WinAPI.FindMainWindow(controller.ProcessName);
+                            if (hwnd != IntPtr.Zero)
+                            {
+                                WinAPI.PostMessage(hwnd, WinAPI.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                            }
+                            else
+                            {
+                                // 如果找不到窗口，则直接结束进程
+                                process.Kill();
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"关闭 {controller.Name} 进程失败: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"关闭 {controller.Name} 时发生错误: {ex}");
+            }
+        }
+
+        // 等待应用完全关闭
+        private void WaitForAppClosing(List<IMusicAppController> apps)
+        {
+            // 设置最大等待时间为3秒
+            int maxWaitTime = 3000; // 3秒
+            int startTime = Environment.TickCount;
+            
+            while (Environment.TickCount - startTime < maxWaitTime)
+            {
+                // 检查是否所有应用都已关闭
+                bool allClosed = true;
+                foreach (var app in apps)
+                {
+                    if (app.IsRunning())
+                    {
+                        allClosed = false;
+                        break;
+                    }
+                }
+                
+                if (allClosed)
+                {
+                    Debug.WriteLine("所有音乐应用已成功关闭");
+                    return;
+                }
+                
+                // 短暂等待
+                System.Threading.Thread.Sleep(100);
+            }
+            
+            Debug.WriteLine("等待音乐应用关闭超时，继续退出");
+            
+            // 超时后，强制关闭所有仍在运行的应用
+            foreach (var app in apps)
+            {
+                if (app.IsRunning())
+                {
+                    try
+                    {
+                        Debug.WriteLine($"强制关闭应用: {app.Name}");
+                        Process[] processes = Process.GetProcessesByName(app.ProcessName);
+                        foreach (var process in processes)
+                        {
+                            if (!process.HasExited)
+                            {
+                                process.Kill(true); // 强制立即终止进程
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"强制关闭 {app.Name} 失败: {ex.Message}");
+                    }
+                }
+            }
         }
 
         // AppHost 控件大小改变
@@ -284,53 +402,6 @@ namespace MusicBridge
             }
         }
 
-        // 打开虚拟键盘按钮点击事件
-        private void OpenKeyboardButton_Click(object sender, RoutedEventArgs e)
-        {
-            // 如果没有嵌入的窗口，提示用户
-            if (!_windowEmbedManager.IsWindowEmbedded)
-            {
-                _uiStateManager.UpdateStatus("错误：没有有效的嵌入窗口。请先启动音乐应用。");
-                return;
-            }
-
-            // 直接初始化虚拟键盘，无需通过TextBox
-            VirtualKeyboardControl.DirectSearchMode = true;
-            VirtualKeyboardControl.Initialize(null);
-            
-            // 订阅虚拟键盘的搜索完成事件
-            VirtualKeyboardControl.SearchCompleted -= VirtualKeyboard_DirectSearch; // 避免重复订阅
-            VirtualKeyboardControl.SearchCompleted += VirtualKeyboard_DirectSearch;
-            
-            // 显示虚拟键盘弹出窗口
-            KeyboardPopup.PlacementTarget = OpenKeyboardButton;
-            KeyboardPopup.IsOpen = true;
-        }
-
-        // 直接搜索事件处理
-        private void VirtualKeyboard_DirectSearch(object sender, string searchText)
-        {
-            // 关闭键盘弹出窗口
-            KeyboardPopup.IsOpen = false;
-            
-            // 如果返回的搜索文本为空（取消操作），不执行任何操作
-            if (string.IsNullOrWhiteSpace(searchText))
-                return;
-            
-            // 执行直接搜索
-            DirectPerformSearch(searchText);
-        }
-
-        // 执行直接搜索
-        private async void DirectPerformSearch(string searchText)
-        {
-            if (string.IsNullOrWhiteSpace(searchText))
-                return;
-                
-            // 检查是否有嵌入的窗口并执行直接搜索
-            await _searchManager.PerformDirectSearch(_windowEmbedManager.EmbeddedWindowHandle, searchText);
-        }
-
         // AppIcon_MouseDown事件 - 处理音乐应用图标点击 - 自动启动和切换
         private async void AppIcon_MouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -416,34 +487,76 @@ namespace MusicBridge
             }
         }
         
+        /// <summary>
+        /// 确保嵌入窗口在弹出系统虚拟键盘后能获得输入焦点（多次尝试，提升输入成功率）
+        /// </summary>
+        /// <param name="embeddedHwnd">嵌入窗口句柄</param>
+        /// <param name="retryCount">尝试次数</param>
+        /// <param name="delayMs">每次尝试间隔（毫秒）</param>
+        private async Task EnsureEmbeddedWindowInputFocusForKeyboard(IntPtr embeddedHwnd, int retryCount = 5, int delayMs = 120)
+        {
+            // 多次尝试将焦点切回嵌入窗口
+            for (int i = 0; i < retryCount; i++)
+            {
+                if (embeddedHwnd == IntPtr.Zero || !WinAPI.IsWindow(embeddedHwnd))
+                    return;
+                WinAPI.SetForegroundWindow(embeddedHwnd);
+                WinAPI.SetFocus(embeddedHwnd);
+                await Task.Delay(delayMs);
+            }
+        }
+
         // SystemKeyboardButton_Click事件 - 处理系统虚拟键盘按钮点击
-        private void SystemKeyboardButton_Click(object sender, RoutedEventArgs e)
+        private async void SystemKeyboardButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                // 切换系统虚拟键盘的显示状态
-                bool isOpen = SystemKeyboardHelper.ToggleSystemKeyboard();
-                
-                // 更新按钮状态和提示文本
-                if (isOpen)
+                // 1. 检查是否有嵌入窗口
+                if (!_windowEmbedManager.IsWindowEmbedded || _windowEmbedManager.EmbeddedWindowHandle == IntPtr.Zero)
                 {
-                    // 键盘已打开，将按钮背景色改为更加明显的选中状态
+                    _uiStateManager.UpdateStatus("错误：没有有效的嵌入窗口。请先启动音乐应用。");
+                    return;
+                }
+                // 2. 获取当前键盘状态
+                bool isKeyboardRunning = SystemKeyboardHelper.IsRunning();
+                IntPtr embeddedHwnd = _windowEmbedManager.EmbeddedWindowHandle;
+                // 3. 根据当前状态执行操作
+                if (!isKeyboardRunning) // 键盘未运行，需要启动
+                {
                     SystemKeyboardButton.Background = new SolidColorBrush(Color.FromRgb(179, 215, 255)); // #B3D7FF
                     SystemKeyboardButton.ToolTip = "关闭系统虚拟键盘";
+                    WinAPI.RECT rect = new WinAPI.RECT();
+                    WinAPI.GetWindowRect(embeddedHwnd, ref rect);
+                    bool opened = SystemKeyboardHelper.Open();
+                    if (!opened)
+                    {
+                        _uiStateManager.UpdateStatus("无法启动系统虚拟键盘");
+                        return;
+                    }
                     _uiStateManager.UpdateStatus("系统虚拟键盘已启动");
+                    await Task.Delay(500);
+                    // 确保焦点回到嵌入窗口
+                    // 新增：多次确保焦点回到嵌入窗口，提升输入成功率
+                    await EnsureEmbeddedWindowInputFocusForKeyboard(embeddedHwnd);
                 }
-                else
+                else // 键盘已运行，需要关闭
                 {
-                    // 键盘已关闭，恢复按钮默认背景色
                     SystemKeyboardButton.Background = new SolidColorBrush(Color.FromRgb(232, 244, 255)); // #E8F4FF
                     SystemKeyboardButton.ToolTip = "打开系统虚拟键盘";
+                    WinAPI.SetForegroundWindow(embeddedHwnd);
+                    await Task.Delay(50);
+                    SystemKeyboardHelper.Close();
                     _uiStateManager.UpdateStatus("系统虚拟键盘已关闭");
+                    await Task.Delay(200);
+                    WinAPI.SetForegroundWindow(embeddedHwnd);
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[SystemKeyboardButton_Click] 错误: {ex}");
                 _uiStateManager.UpdateStatus($"操作系统虚拟键盘时出错: {ex.Message}");
+                SystemKeyboardButton.Background = new SolidColorBrush(Color.FromRgb(232, 244, 255)); // #E8F4FF
+                SystemKeyboardButton.ToolTip = "打开系统虚拟键盘";
             }
         }
     }

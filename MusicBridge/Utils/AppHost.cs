@@ -201,20 +201,44 @@ namespace MusicBridge
                         handled = true; // 消息已处理
                         break;
                     
-                    // 添加键盘消息转发
+                    // 添加键盘消息转发 - 增强版
                     case WinAPI.WM_KEYDOWN:
                     case WinAPI.WM_KEYUP:
                     case WinAPI.WM_SYSKEYDOWN:
                     case WinAPI.WM_SYSKEYUP:
                     case WinAPI.WM_CHAR:
                     case WinAPI.WM_SYSCHAR:
-                        // 如果有嵌入窗口且有效，则转发键盘消息
+                    case 0x0281: // WM_IME_SETCONTEXT
+                    case 0x0282: // WM_IME_NOTIFY
+                    case 0x0283: // WM_IME_CONTROL
+                    case 0x0284: // WM_IME_COMPOSITIONFULL
+                    case 0x0285: // WM_IME_SELECT
+                    case 0x0286: // WM_IME_CHAR
+                    case 0x0288: // WM_IME_REQUEST
+                    case 0x010D: // WM_IME_STARTCOMPOSITION
+                    case 0x010E: // WM_IME_ENDCOMPOSITION
+                    case 0x010F: // WM_IME_COMPOSITION
+                        // 如果有嵌入窗口且有效，则转发键盘和输入法消息
                         if (_hostedAppHwnd != IntPtr.Zero && WinAPI.IsWindow(_hostedAppHwnd))
                         {
+                            // 使用PostMessage替代SendMessage来异步转发消息，避免阻塞
+                            WinAPI.PostMessage(_hostedAppHwnd, msg, wParam, lParam);
+                            // 也发送同步消息以确保必要时能够同步处理
                             WinAPI.SendMessage(_hostedAppHwnd, msg, wParam, lParam);
+                            
+                            // 调试输出
+                            if (msg == WinAPI.WM_CHAR)
+                            {
+                                char c = (char)wParam.ToInt32();
+                                Debug.WriteLine($"[AppHost KeyEvent] 转发字符输入 '{c}' (0x{wParam.ToInt32():X4}) 到窗口 {_hostedAppHwnd}");
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"[AppHost KeyEvent] 转发消息 0x{msg:X4} wParam=0x{wParam.ToInt32():X4} 到窗口 {_hostedAppHwnd}");
+                            }
+                            
                             // 标记为已处理，避免WPF再处理一遍
                             handled = true;
-                            Debug.WriteLine($"[AppHost KeyEvent] 转发键盘消息 {msg} 到嵌入窗口 {_hostedAppHwnd}");
                         }
                         break;
                     
@@ -236,12 +260,49 @@ namespace MusicBridge
                         if (_hostedAppHwnd != IntPtr.Zero && WinAPI.IsWindow(_hostedAppHwnd))
                         {
                             WinAPI.SetFocus(_hostedAppHwnd);
+                            // 不标记为已处理，让消息继续传递
                         }
                         break;
                 }
             }
             // 调用基类处理其他消息
             return base.WndProc(hwnd, msg, wParam, lParam, ref handled);
+        }
+
+        // 发送字符串到嵌入窗口
+        public void SendTextToEmbeddedWindow(string text)
+        {
+            if (_hostedAppHwnd == IntPtr.Zero || !WinAPI.IsWindow(_hostedAppHwnd))
+            {
+                Debug.WriteLine("[AppHost SendText] 无法发送文本，嵌入窗口无效");
+                return;
+            }
+
+            // 确保嵌入窗口有焦点
+            WinAPI.SetForegroundWindow(_hostedAppHwnd);
+            WinAPI.SetFocus(_hostedAppHwnd);
+            
+            // 等待窗口获取焦点
+            System.Threading.Thread.Sleep(50);
+            
+            // 逐个字符发送
+            foreach (char c in text)
+            {
+                // 发送WM_CHAR消息
+                IntPtr charCode = new IntPtr(c);
+                WinAPI.PostMessage(_hostedAppHwnd, WinAPI.WM_CHAR, charCode, IntPtr.Zero);
+                WinAPI.SendMessage(_hostedAppHwnd, WinAPI.WM_CHAR, charCode, IntPtr.Zero);
+                
+                // 短暂延迟确保消息处理
+                System.Threading.Thread.Sleep(5);
+            }
+            
+            // 可选：发送回车键
+            // WinAPI.PostMessage(_hostedAppHwnd, WinAPI.WM_KEYDOWN, new IntPtr(WinAPI.VK_RETURN), IntPtr.Zero);
+            // System.Threading.Thread.Sleep(5);
+            // WinAPI.PostMessage(_hostedAppHwnd, WinAPI.WM_KEYUP, new IntPtr(WinAPI.VK_RETURN), IntPtr.Zero);
+            
+            Debug.WriteLine($"[AppHost SendText] 发送文本 '{text}' 到窗口 {_hostedAppHwnd}");
         }
 
         // 获取父窗口句柄

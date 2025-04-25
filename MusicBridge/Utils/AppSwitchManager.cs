@@ -59,14 +59,39 @@ namespace MusicBridge.Utils
 
             try
             {
-                // 如果切换到相同的应用控制器，但应用未运行，则启动它
-                if (newController == _currentController && !newController.IsRunning())
+                // 如果切换到相同的应用控制器
+                if (newController == _currentController)
                 {
-                    _updateStatus($"启动 {newController.Name}...");
-                    return await _windowEmbedManager.LaunchAndEmbedAsync(newController);
+                    // 如果应用已运行且已嵌入，不执行任何操作直接返回
+                    if (newController.IsRunning() && _windowEmbedManager.IsWindowEmbedded)
+                    {
+                        _updateStatus($"{newController.Name} 已在运行中");
+                        return true;
+                    }
+                    // 如果应用未运行，则启动它
+                    else if (!newController.IsRunning())
+                    {
+                        _updateStatus($"启动 {newController.Name}...");
+                        return await _windowEmbedManager.LaunchAndEmbedAsync(newController);
+                    }
+                    // 如果应用正在运行但未嵌入，尝试重新嵌入
+                    else
+                    {
+                        _updateStatus($"重新嵌入 {newController.Name}...");
+                        IntPtr hwnd = WinAPI.FindMainWindow(newController.ProcessName);
+                        if (hwnd != IntPtr.Zero && WinAPI.IsWindow(hwnd))
+                        {
+                            return _windowEmbedManager.EmbedExistingWindow(hwnd);
+                        }
+                        else
+                        {
+                            _updateStatus($"找不到 {newController.Name} 的窗口，尝试重新启动");
+                            return await _windowEmbedManager.LaunchAndEmbedAsync(newController);
+                        }
+                    }
                 }
 
-                // 如果有当前应用在运行，先关闭它
+                // 切换到不同的应用：如果有当前应用在运行，先关闭它
                 if (_currentController != null && _windowEmbedManager.IsWindowEmbedded)
                 {
                     await CloseCurrentAppAsync();

@@ -174,15 +174,6 @@ namespace MusicBridge
                 return;
             }
 
-            // 首先尝试使用媒体键方法（这是从网易云验证有效的方法）
-            bool success = await SendMediaKeyCommandAsync(targetHwnd, command);
-            if (success)
-            {
-                Debug.WriteLine($"[{Name} SendCommandAsync] 使用媒体键成功发送 {command} 到 HWND: {targetHwnd}");
-                return;
-            }
-
-            // 如果媒体键方法失败，回退到传统的 WM_APPCOMMAND 消息
             int? appCommand = command switch
             {
                 MediaCommand.PlayPause => WinAPI.APPCOMMAND_MEDIA_PLAY_PAUSE,

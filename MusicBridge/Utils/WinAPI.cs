@@ -485,5 +485,108 @@ namespace MusicBridge
             System.Threading.Thread.Sleep(100); // 给系统一点时间响应
            
         }
+
+        // 添加 ClickWindowAt 方法 - 点击窗口的指定位置
+        public static void ClickWindowAt(IntPtr hWnd, int x, int y)
+        {
+            try
+            {
+                // 确保窗口处于前台
+                SetForegroundWindow(hWnd);
+                System.Threading.Thread.Sleep(50);
+
+                // 获取窗口客户区域在屏幕上的坐标
+                RECT rect = new RECT();
+                GetClientRect(hWnd, ref rect);
+                
+                POINT point = new POINT { X = 0, Y = 0 };
+                ClientToScreen(hWnd, ref point);
+                
+                // 计算实际要点击的屏幕坐标
+                int screenX = point.X + x;
+                int screenY = point.Y + y;
+                
+                // 获取屏幕分辨率
+                int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+                int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+                
+                // 将坐标转换为规范化坐标 (0-65535)
+                int normalizedX = (screenX * 65535) / screenWidth;
+                int normalizedY = (screenY * 65535) / screenHeight;
+                
+                // 准备输入
+                INPUT[] inputs = new INPUT[3];
+                
+                // 1. 移动鼠标到目标位置
+                inputs[0] = new INPUT
+                {
+                    type = INPUT_MOUSE,
+                    u = new INPUT_UNION
+                    {
+                        mi = new MOUSEINPUT
+                        {
+                            dx = normalizedX,
+                            dy = normalizedY,
+                            mouseData = 0,
+                            dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
+                            time = 0,
+                            dwExtraInfo = GetMessageExtraInfo()
+                        }
+                    }
+                };
+                
+                // 2. 鼠标左键按下
+                inputs[1] = new INPUT
+                {
+                    type = INPUT_MOUSE,
+                    u = new INPUT_UNION
+                    {
+                        mi = new MOUSEINPUT
+                        {
+                            dx = 0,
+                            dy = 0,
+                            mouseData = 0,
+                            dwFlags = MOUSEEVENTF_LEFTDOWN,
+                            time = 0,
+                            dwExtraInfo = GetMessageExtraInfo()
+                        }
+                    }
+                };
+                
+                // 3. 鼠标左键抬起
+                inputs[2] = new INPUT
+                {
+                    type = INPUT_MOUSE,
+                    u = new INPUT_UNION
+                    {
+                        mi = new MOUSEINPUT
+                        {
+                            dx = 0,
+                            dy = 0,
+                            mouseData = 0,
+                            dwFlags = MOUSEEVENTF_LEFTUP,
+                            time = 0,
+                            dwExtraInfo = GetMessageExtraInfo()
+                        }
+                    }
+                };
+                
+                // 发送输入
+                uint result = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
+                if (result == 0)
+                {
+                    int errorCode = Marshal.GetLastWin32Error();
+                    Debug.WriteLine($"[ClickWindowAt] SendInput 失败，错误代码: {errorCode}");
+                }
+                else
+                {
+                    Debug.WriteLine($"[ClickWindowAt] 成功点击位置 ({x}, {y})");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ClickWindowAt] 异常: {ex}");
+            }
+        }
     }
 }

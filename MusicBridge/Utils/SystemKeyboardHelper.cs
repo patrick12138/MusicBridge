@@ -19,7 +19,6 @@ namespace MusicBridge.Utils
 
         // 进程实例，用于跟踪虚拟键盘进程
         private static Process _oskProcess = null;
-
         /// <summary>
         /// 检查系统虚拟键盘是否正在运行
         /// </summary>
@@ -36,41 +35,37 @@ namespace MusicBridge.Utils
         }
 
         /// <summary>
-        /// 打开系统虚拟键盘
+        /// 检查系统虚拟键盘是否正在运行
         /// </summary>
-        /// <returns>是否成功启动键盘</returns>
-        public static bool OpenSystemKeyboard()
+        public static bool IsRunning()
         {
             try
             {
-                // 如果键盘已经在运行，则不重复启动
-                if (IsKeyboardRunning())
-                {
-                    // 将已有的键盘窗口置前
-                    Process[] processes = Process.GetProcessesByName("osk");
-                    if (processes.Length > 0)
-                    {
-                        IntPtr hwnd = processes[0].MainWindowHandle;
-                        if (hwnd != IntPtr.Zero)
-                        {
-                            WinAPI.SetForegroundWindow(hwnd);
-                            return true;
-                        }
-                    }
+                Process[] procs = Process.GetProcessesByName("osk");
+                return procs != null && procs.Length > 0;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[SystemKeyboardHelper.IsRunning] 错误: {ex}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 打开系统虚拟键盘
+        /// </summary>
+        public static bool Open()
+        {
+            try
+            {
+                // 如果已经在运行，就不重复启动
+                if (IsRunning())
                     return true;
-                }
 
-                // 检查文件是否存在
-                if (!File.Exists(OskPath))
-                {
-                    MessageBox.Show("找不到系统虚拟键盘程序 (osk.exe)。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return false;
-                }
-
-                // 启动虚拟键盘进程
+                // 使用 ProcessStartInfo 启动系统键盘
                 ProcessStartInfo startInfo = new ProcessStartInfo
                 {
-                    FileName = OskPath,
+                    FileName = "osk.exe",
                     UseShellExecute = true
                 };
 
@@ -79,8 +74,7 @@ namespace MusicBridge.Utils
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SystemKeyboardHelper.OpenSystemKeyboard] 错误: {ex}");
-                MessageBox.Show($"启动系统虚拟键盘时出错: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                Debug.WriteLine($"[SystemKeyboardHelper.Open] 错误: {ex}");
                 return false;
             }
         }
@@ -88,57 +82,51 @@ namespace MusicBridge.Utils
         /// <summary>
         /// 关闭系统虚拟键盘
         /// </summary>
-        public static void CloseSystemKeyboard()
+        public static bool Close()
         {
             try
             {
-                if (_oskProcess != null && !_oskProcess.HasExited)
+                // 尝试通过进程名关闭所有虚拟键盘实例
+                Process[] procs = Process.GetProcessesByName("osk");
+                bool closed = false;
+
+                foreach (var proc in procs)
                 {
-                    _oskProcess.CloseMainWindow();
-                    // 给一点时间让进程优雅地退出
-                    if (!_oskProcess.WaitForExit(1000))
+                    try
                     {
-                        _oskProcess.Kill();
+                        proc.Kill();
+                        closed = true;
+                    }
+                    catch
+                    {
+                        // 忽略单个进程关闭失败的错误
                     }
                 }
-                else
-                {
-                    // 尝试关闭由其他方式启动的键盘实例
-                    Process[] processes = Process.GetProcessesByName("osk");
-                    foreach (var process in processes)
-                    {
-                        process.CloseMainWindow();
-                        if (!process.WaitForExit(1000))
-                        {
-                            process.Kill();
-                        }
-                    }
-                }
+
+                _oskProcess = null;
+                return closed;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SystemKeyboardHelper.CloseSystemKeyboard] 错误: {ex}");
-            }
-            finally
-            {
-                _oskProcess = null;
+                Debug.WriteLine($"[SystemKeyboardHelper.Close] 错误: {ex}");
+                return false;
             }
         }
 
         /// <summary>
-        /// 切换系统虚拟键盘的显示状态（打开/关闭）
+        /// 切换系统虚拟键盘的显示状态
         /// </summary>
-        /// <returns>键盘最终是否为打开状态</returns>
         public static bool ToggleSystemKeyboard()
         {
-            if (IsKeyboardRunning())
+            if (IsRunning())
             {
-                CloseSystemKeyboard();
-                return false;
+                Close();
+                return false; // 返回关闭后的状态
             }
             else
             {
-                return OpenSystemKeyboard();
+                Open();
+                return true; // 返回打开后的状态
             }
         }
     }

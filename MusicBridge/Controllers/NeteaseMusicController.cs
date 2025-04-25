@@ -12,10 +12,14 @@ namespace MusicBridge.Controllers
         public override async Task SendCommandAsync(IntPtr hwnd, MediaCommand command)
         {
             Debug.WriteLine($"[{Name}] 尝试发送命令: {command} 到窗口 {hwnd}");
-            
-            // 优先尝试基类中的媒体键方法
-            await base.SendCommandAsync(hwnd, command);
-        }
 
+            // 首先尝试使用媒体键方法（这是从网易云验证有效的方法）
+            bool success = await SendMediaKeyCommandAsync(hwnd, command);
+            if (success)
+            {
+                Debug.WriteLine($"[{Name} SendCommandAsync] 使用媒体键成功发送 {command} 到 HWND: {hwnd}");
+                return;
+            }
+        }
     }
 }
