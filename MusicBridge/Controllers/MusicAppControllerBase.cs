@@ -5,11 +5,12 @@ using System.Text;
 using System.Windows;
 using Microsoft.Win32;
 using MusicBridge.Controllers;
+using MusicBridge.Utils.Window;
 
 namespace MusicBridge
 {
     // 控制器基类
-    public abstract class MusicAppControllerBase : IMusicAppController
+    public abstract class MusicAppControllerBase : IMusicApp
     {
         public abstract string Name { get; }
         public abstract string ProcessName { get; }

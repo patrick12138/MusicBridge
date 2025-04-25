@@ -1,5 +1,7 @@
 using MusicBridge.Controllers;
 using MusicBridge.Utils;
+using MusicBridge.Utils.UI;
+using MusicBridge.Utils.Window;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -13,7 +15,7 @@ namespace MusicBridge
 {
     public partial class MainWindow : Window
     {
-        private readonly List<IMusicAppController> controllers = new List<IMusicAppController>(); // 所有控制器
+        private readonly List<IMusicApp> controllers = new List<IMusicApp>(); // 所有控制器
         private readonly DispatcherTimer statusTimer = new DispatcherTimer(); // 状态刷新定时器
 
         // 辅助类实例
@@ -141,7 +143,7 @@ namespace MusicBridge
         private void CloseAllMusicApps()
         {
             // 获取所有正在运行的音乐应用
-            List<IMusicAppController> runningApps = controllers.Where(c => c.IsRunning()).ToList();
+            List<IMusicApp> runningApps = controllers.Where(c => c.IsRunning()).ToList();
     
             // 如果有运行中的音乐应用，关闭它们
             if (runningApps.Count > 0)

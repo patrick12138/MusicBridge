@@ -1,11 +1,12 @@
 using MusicBridge.Controllers;
+using MusicBridge.Utils.UI;
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 
-namespace MusicBridge.Utils
+namespace MusicBridge.Utils.Window
 {
     /// <summary>
     /// 管理窗口嵌入操作
@@ -17,21 +18,14 @@ namespace MusicBridge.Utils
         private readonly AppHost _appHost;
         private UIStateManager _uiStateManager; // 新增：UI状态管理器引用
 
-        private IntPtr _embeddedWindowHandle = IntPtr.Zero;
+        private nint _embeddedWindowHandle = nint.Zero;
         
-        /// <summary>
-        /// Gets whether a window is currently embedded
-        /// </summary>
-        public bool IsWindowEmbedded => _embeddedWindowHandle != IntPtr.Zero && WinAPI.IsWindow(_embeddedWindowHandle);
+
+        public bool IsWindowEmbedded => _embeddedWindowHandle != nint.Zero && WinAPI.IsWindow(_embeddedWindowHandle);
+
+        public nint EmbeddedWindowHandle => _embeddedWindowHandle;
         
-        /// <summary>
-        /// Gets the handle of the currently embedded window
-        /// </summary>
-        public IntPtr EmbeddedWindowHandle => _embeddedWindowHandle;
-        
-        /// <summary>
-        /// Creates a new instance of WindowEmbedManager
-        /// </summary>
+
         public WindowEmbedManager(Dispatcher dispatcher, Action<string> updateStatus, AppHost appHost)
         {
             _dispatcher = dispatcher;
@@ -47,10 +41,7 @@ namespace MusicBridge.Utils
             _uiStateManager = uiStateManager;
         }
         
-        /// <summary>
-        /// Launches and embeds the specified music application
-        /// </summary>
-        public async Task<bool> LaunchAndEmbedAsync(IMusicAppController controller)
+        public async Task<bool> LaunchAndEmbedAsync(IMusicApp controller)
         {
             if (controller == null) 
             {
@@ -84,8 +75,8 @@ namespace MusicBridge.Utils
                 else
                 {
                     // 如果已运行，确保窗口不是最小化
-                    IntPtr existingHwnd = WinAPI.FindMainWindow(controller.ProcessName);
-                    if (existingHwnd != IntPtr.Zero && WinAPI.IsIconic(existingHwnd))
+                    nint existingHwnd = WinAPI.FindMainWindow(controller.ProcessName);
+                    if (existingHwnd != nint.Zero && WinAPI.IsIconic(existingHwnd))
                     {
                         WinAPI.ShowWindow(existingHwnd, WinAPI.SW_RESTORE);
                         await Task.Delay(500); // 等待窗口恢复
@@ -94,11 +85,11 @@ namespace MusicBridge.Utils
                 }
 
                 // 2. 查找主窗口句柄 (尝试多次)
-                IntPtr targetHwnd = IntPtr.Zero;
+                nint targetHwnd = nint.Zero;
                 for (int i = 0; i < 7; i++) // 增加尝试次数，从5次到7次
                 {
                     targetHwnd = WinAPI.FindMainWindow(controller.ProcessName);
-                    if (targetHwnd != IntPtr.Zero) break; // 找到即退出循环
+                    if (targetHwnd != nint.Zero) break; // 找到即退出循环
                     
                     // 更新等待提示，告知用户还在尝试
                     _updateStatus($"第 {i + 1} 次查找 {controller.Name} 窗口，请稍候...");
@@ -107,7 +98,7 @@ namespace MusicBridge.Utils
                 }
 
                 // 3. 尝试嵌入
-                if (targetHwnd != IntPtr.Zero)
+                if (targetHwnd != nint.Zero)
                 {
                     _updateStatus($"找到窗口 {targetHwnd}，正在嵌入...");
                     bool success = false;
@@ -129,7 +120,7 @@ namespace MusicBridge.Utils
                     }
                     else
                     {
-                        _embeddedWindowHandle = IntPtr.Zero;
+                        _embeddedWindowHandle = nint.Zero;
                         _updateStatus($"嵌入 {controller.Name} 失败。");
                         // 隐藏加载提示
                         _uiStateManager?.HideLoadingOverlay();
@@ -171,7 +162,7 @@ namespace MusicBridge.Utils
             {
                 _appHost.RestoreHostedWindow(); // AppHost 负责恢复窗口 (内部会清除 CurrentController)
             }
-            _embeddedWindowHandle = IntPtr.Zero; // 清除记录
+            _embeddedWindowHandle = nint.Zero; // 清除记录
             Debug.WriteLine("嵌入窗口已分离");
         }
         
@@ -180,11 +171,11 @@ namespace MusicBridge.Utils
         /// </summary>
         /// <param name="hwnd">要嵌入的窗口句柄</param>
         /// <returns>嵌入是否成功</returns>
-        public bool EmbedExistingWindow(IntPtr hwnd)
+        public bool EmbedExistingWindow(nint hwnd)
         {
             if (!_dispatcher.CheckAccess())
             {
-                return (bool)_dispatcher.Invoke(() => EmbedExistingWindow(hwnd));
+                return _dispatcher.Invoke(() => EmbedExistingWindow(hwnd));
             }
             
             // 如果已经有嵌入的窗口，先分离
@@ -194,7 +185,7 @@ namespace MusicBridge.Utils
             }
             
             // 确认窗口仍然有效
-            if (hwnd == IntPtr.Zero || !WinAPI.IsWindow(hwnd))
+            if (hwnd == nint.Zero || !WinAPI.IsWindow(hwnd))
             {
                 _updateStatus("错误：无效的窗口句柄，无法嵌入。");
                 return false;
@@ -204,7 +195,7 @@ namespace MusicBridge.Utils
             if (WinAPI.IsIconic(hwnd))
             {
                 WinAPI.ShowWindow(hwnd, WinAPI.SW_RESTORE);
-                System.Threading.Thread.Sleep(500); // 等待窗口恢复
+                Thread.Sleep(500); // 等待窗口恢复
             }
             
             // 尝试嵌入
@@ -220,7 +211,7 @@ namespace MusicBridge.Utils
             }
             else
             {
-                _embeddedWindowHandle = IntPtr.Zero;
+                _embeddedWindowHandle = nint.Zero;
                 _updateStatus("重新嵌入窗口失败。");
                 return false;
             }

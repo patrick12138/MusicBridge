@@ -1,12 +1,10 @@
 using MusicBridge.Controllers;
-using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 
-namespace MusicBridge.Utils
+namespace MusicBridge.Utils.UI
 {
     /// <summary>
     /// 管理应用的UI状态
@@ -74,12 +72,10 @@ namespace MusicBridge.Utils
             // 查找重新嵌入按钮（通过 MainWindow 中的 FindName 查找）
             if (_detachButton != null && _detachButton.Parent is UIElement parent)
             {
-                var window = Window.GetWindow(parent);
+                var window = System.Windows.Window.GetWindow(parent);
                 if (window != null)
                 {
                     _reEmbedButton = window.FindName("ReEmbedButton") as Button;
-                    
-                    // 新增: 查找加载提示相关控件
                     _loadingOverlay = window.FindName("LoadingOverlay") as FrameworkElement;
                     _loadingText = window.FindName("LoadingText") as TextBlock;
                 }
@@ -117,7 +113,7 @@ namespace MusicBridge.Utils
         /// 根据应用状态更新UI
         /// </summary>
         public async Task UpdateUIState(
-            IMusicAppController controller, 
+            IMusicApp controller, 
             bool isRunning, 
             bool isEmbedded, 
             string currentSong)
@@ -315,7 +311,7 @@ namespace MusicBridge.Utils
                 
                 // 只有当没有嵌入窗口时，才显示操作区域提示
                 // 避免在加载失败或快速切换时短暂显示操作区域提示
-                if (_appHost != null && _appHost.HostedAppWindowHandle != IntPtr.Zero)
+                if (_appHost != null && _appHost.HostedAppWindowHandle != nint.Zero)
                 {
                     if (_operationOverlay != null)
                     {

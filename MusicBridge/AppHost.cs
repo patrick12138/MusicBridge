@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MusicBridge.Utils.Window;
+using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -10,17 +11,17 @@ namespace MusicBridge
     public class AppHost : HwndHost
     {
         private const int HOST_ID = 0x00000001;         // 宿主窗口的任意 ID
-        private IntPtr _hostHwnd = IntPtr.Zero;         // 我们创建的宿主 Win32 窗口句柄
-        private IntPtr _hostedAppHwnd = IntPtr.Zero;    // 被嵌入的应用窗口句柄
-        private IntPtr _originalParent = IntPtr.Zero;   // 记录原始父窗口 (虽然通常恢复到桌面)
+        private nint _hostHwnd = nint.Zero;         // 我们创建的宿主 Win32 窗口句柄
+        private nint _hostedAppHwnd = nint.Zero;    // 被嵌入的应用窗口句柄
+        private nint _originalParent = nint.Zero;   // 记录原始父窗口 (虽然通常恢复到桌面)
         private long _originalStyles = 0;               // 记录原始窗口样式
 
         // --- 新增：存储当前嵌入的控制器实例 ---
-        public Controllers.IMusicAppController CurrentController { get; set; }
+        public Controllers.IMusicApp CurrentController { get; set; }
         // --- 新增结束 ---
 
         // 公开属性，获取当前嵌入的应用窗口句柄
-        public IntPtr HostedAppWindowHandle => _hostedAppHwnd;
+        public nint HostedAppWindowHandle => _hostedAppHwnd;
 
         // 构造函数
         public AppHost()
@@ -37,13 +38,13 @@ namespace MusicBridge
                 "",                     // 无标题
                 WinAPI.WS_CHILD | WinAPI.WS_VISIBLE | WinAPI.WS_CLIPCHILDREN | WinAPI.WS_CLIPSIBLINGS, // 关键样式：子窗口、可见、裁剪子/兄弟
                 0, 0,                   // X, Y (相对于 hwndParent)
-                (int)this.ActualWidth, (int)this.ActualHeight, // 初始宽高
+                (int)ActualWidth, (int)ActualHeight, // 初始宽高
                 hwndParent.Handle,      // 父窗口句柄 (来自 WPF)
-                (IntPtr)HOST_ID,        // 窗口 ID
-                IntPtr.Zero,            // 当前进程实例句柄 (传 Zero)
-                IntPtr.Zero);           // 无附加参数
+                HOST_ID,        // 窗口 ID
+                nint.Zero,            // 当前进程实例句柄 (传 Zero)
+                nint.Zero);           // 无附加参数
 
-            if (_hostHwnd == IntPtr.Zero)
+            if (_hostHwnd == nint.Zero)
             {
                 int error = Marshal.GetLastWin32Error();
                 Debug.WriteLine($"[AppHost] 创建宿主窗口失败，错误码: {error}");
@@ -71,20 +72,20 @@ namespace MusicBridge
                 int error = Marshal.GetLastWin32Error();
                 Debug.WriteLine($"[AppHost] 销毁宿主窗口 HWND: {hwnd.Handle} 失败，错误码: {error}");
             }
-            _hostHwnd = IntPtr.Zero;
+            _hostHwnd = nint.Zero;
         }
 
         // 尝试将指定的外部应用窗口嵌入到宿主窗口中
-        public bool EmbedWindow(IntPtr appWindowHandle)
+        public bool EmbedWindow(nint appWindowHandle)
         {
-            if (_hostHwnd == IntPtr.Zero || appWindowHandle == IntPtr.Zero || !WinAPI.IsWindow(appWindowHandle))
+            if (_hostHwnd == nint.Zero || appWindowHandle == nint.Zero || !WinAPI.IsWindow(appWindowHandle))
             {
                 Debug.WriteLine($"[AppHost Embed] 失败：宿主窗口({_hostHwnd}) 或目标应用窗口({appWindowHandle}) 无效。");
                 return false;
             }
 
             // 如果已经有窗口嵌入，先恢复它
-            if (_hostedAppHwnd != IntPtr.Zero && _hostedAppHwnd != appWindowHandle)
+            if (_hostedAppHwnd != nint.Zero && _hostedAppHwnd != appWindowHandle)
             {
                 Debug.WriteLine($"[AppHost Embed] 检测到已嵌入窗口 {_hostedAppHwnd}，先执行恢复...");
                 RestoreHostedWindow();
@@ -100,23 +101,23 @@ namespace MusicBridge
             Debug.WriteLine($"[AppHost Embed] 记录原始样式: 0x{_originalStyles:X}, 原始父窗口: {_originalParent}");
 
             // 2. 设置新的父窗口 (将外部窗口放入我们的宿主窗口)
-            IntPtr previousParent = WinAPI.SetParent(_hostedAppHwnd, _hostHwnd);
-            if (previousParent == IntPtr.Zero && Marshal.GetLastWin32Error() != 0) // SetParent 失败且有错误码
+            nint previousParent = WinAPI.SetParent(_hostedAppHwnd, _hostHwnd);
+            if (previousParent == nint.Zero && Marshal.GetLastWin32Error() != 0) // SetParent 失败且有错误码
             {
                 int error = Marshal.GetLastWin32Error();
                 Debug.WriteLine($"[AppHost Embed] SetParent 失败，错误码: {error}。目标窗口 HWND: {_hostedAppHwnd}。可能需要管理员权限?");
-                _hostedAppHwnd = IntPtr.Zero; // 嵌入失败
+                _hostedAppHwnd = nint.Zero; // 嵌入失败
                 return false;
             }
             Debug.WriteLine($"[AppHost Embed] SetParent 成功，旧父窗口: {previousParent}");
 
             // 3. 修改窗口样式 (移除边框、标题栏，添加 WS_CHILD)
             // 移除弹窗、边框、标题栏、系统菜单、最小化/最大化按钮，并强制设置为子窗口样式，防止调整和移动
-            long newStyle = (_originalStyles & ~((long)WinAPI.WS_POPUP | (long)WinAPI.WS_CAPTION | (long)WinAPI.WS_BORDER | (long)WinAPI.WS_DLGFRAME | (long)WinAPI.WS_THICKFRAME | (long)WinAPI.WS_SYSMENU | (long)WinAPI.WS_MINIMIZEBOX | (long)WinAPI.WS_MAXIMIZEBOX)) | (long)WinAPI.WS_CHILD;
+            long newStyle = _originalStyles & ~(WinAPI.WS_POPUP | (long)WinAPI.WS_CAPTION | WinAPI.WS_BORDER | WinAPI.WS_DLGFRAME | WinAPI.WS_THICKFRAME | WinAPI.WS_SYSMENU | WinAPI.WS_MINIMIZEBOX | WinAPI.WS_MAXIMIZEBOX) | WinAPI.WS_CHILD;
             Debug.WriteLine($"[AppHost Embed] 准备设置新样式: 0x{newStyle:X}");
-            IntPtr previousStyle = WinAPI.SetWindowLongPtr(_hostedAppHwnd, WinAPI.GWL_STYLE, new IntPtr(newStyle));
+            nint previousStyle = WinAPI.SetWindowLongPtr(_hostedAppHwnd, WinAPI.GWL_STYLE, new nint(newStyle));
             // 检查 SetWindowLongPtr 是否成功 (虽然它通常返回旧样式值，但在失败时可能返回0并设置LastWin32Error)
-            if (previousStyle == IntPtr.Zero && Marshal.GetLastWin32Error() != 0)
+            if (previousStyle == nint.Zero && Marshal.GetLastWin32Error() != 0)
             {
                  int error = Marshal.GetLastWin32Error();
                  Debug.WriteLine($"[AppHost Embed] SetWindowLongPtr 可能失败，错误码: {error}。旧样式值: 0x{_originalStyles:X}");
@@ -131,9 +132,9 @@ namespace MusicBridge
             // 4. 强制应用样式更改并调整大小/位置
             // 使用 SetWindowPos 替代 MoveWindow，因为它更灵活，并且可以同时发送 SWP_FRAMECHANGED
             Debug.WriteLine($"[AppHost Embed] 准备调用 SetWindowPos 调整位置和大小并应用框架更改...");
-            bool posChanged = WinAPI.SetWindowPos(_hostedAppHwnd, IntPtr.Zero, // 不改变 Z 顺序
+            bool posChanged = WinAPI.SetWindowPos(_hostedAppHwnd, nint.Zero, // 不改变 Z 顺序
                 0, 0, // 新位置 (x, y)
-                (int)this.ActualWidth, (int)this.ActualHeight, // 新大小 (width, height)
+                (int)ActualWidth, (int)ActualHeight, // 新大小 (width, height)
                 WinAPI.SWP_FRAMECHANGED | WinAPI.SWP_NOACTIVATE | WinAPI.SWP_NOZORDER); // 标志：应用框架更改，不激活，不改变 Z 顺序
 
             if (!posChanged)
@@ -162,39 +163,39 @@ namespace MusicBridge
         // 恢复被嵌入窗口到其原始状态（分离）
         public void RestoreHostedWindow()
         {
-            if (_hostedAppHwnd == IntPtr.Zero || !WinAPI.IsWindow(_hostedAppHwnd))
+            if (_hostedAppHwnd == nint.Zero || !WinAPI.IsWindow(_hostedAppHwnd))
             {
                 Debug.WriteLine($"[AppHost Restore] 无需恢复，目标窗口句柄 ({_hostedAppHwnd}) 无效或已为 Zero。");
-                _hostedAppHwnd = IntPtr.Zero; // 确保重置
+                _hostedAppHwnd = nint.Zero; // 确保重置
                 return;
             }
 
             Debug.WriteLine($"[AppHost Restore] 开始恢复窗口 HWND: {_hostedAppHwnd}");
 
             // 1. 恢复父窗口 (通常恢复到桌面，即 IntPtr.Zero)
-            IntPtr newParent = IntPtr.Zero; // 或者使用 _originalParent (如果记录可靠)
+            nint newParent = nint.Zero; // 或者使用 _originalParent (如果记录可靠)
             Debug.WriteLine($"[AppHost Restore] 设置父窗口回: {newParent}");
             WinAPI.SetParent(_hostedAppHwnd, newParent);
 
             // 2. 恢复原始样式
             Debug.WriteLine($"[AppHost Restore] 恢复原始样式: 0x{_originalStyles:X}");
-            WinAPI.SetWindowLongPtr(_hostedAppHwnd, WinAPI.GWL_STYLE, new IntPtr(_originalStyles));
+            WinAPI.SetWindowLongPtr(_hostedAppHwnd, WinAPI.GWL_STYLE, new nint(_originalStyles));
 
             // 3. 强制应用样式更改
-            WinAPI.SetWindowPos(_hostedAppHwnd, IntPtr.Zero, 0, 0, 0, 0,
+            WinAPI.SetWindowPos(_hostedAppHwnd, nint.Zero, 0, 0, 0, 0,
                 WinAPI.SWP_NOMOVE | WinAPI.SWP_NOSIZE | WinAPI.SWP_NOZORDER | WinAPI.SWP_FRAMECHANGED | WinAPI.SWP_SHOWWINDOW);
 
             Debug.WriteLine($"[AppHost Restore] 窗口 HWND: {_hostedAppHwnd} 恢复完成。");
-            _hostedAppHwnd = IntPtr.Zero; // 清除记录
+            _hostedAppHwnd = nint.Zero; // 清除记录
             _originalStyles = 0;
-            _originalParent = IntPtr.Zero;
+            _originalParent = nint.Zero;
             CurrentController = null; // --- 新增：清除控制器引用 ---
         }
 
         // 当 HwndHost (即此控件) 大小改变时，调整嵌入窗口的大小
         public void ResizeEmbeddedWindow()
         {
-            if (_hostHwnd != IntPtr.Zero && _hostedAppHwnd != IntPtr.Zero && WinAPI.IsWindow(_hostedAppHwnd))
+            if (_hostHwnd != nint.Zero && _hostedAppHwnd != nint.Zero && WinAPI.IsWindow(_hostedAppHwnd))
             {
                 // 获取当前DPI信息
                 var source = PresentationSource.FromVisual(this);
@@ -205,8 +206,8 @@ namespace MusicBridge
                     double dpiY = source.CompositionTarget.TransformToDevice.M22;
                     
                     // 使用DPI调整后的尺寸
-                    int width = (int)(this.ActualWidth * dpiX);
-                    int height = (int)(this.ActualHeight * dpiY);
+                    int width = (int)(ActualWidth * dpiX);
+                    int height = (int)(ActualHeight * dpiY);
                     
                     Debug.WriteLine($"[AppHost Resize] 调整窗口，应用DPI缩放: {dpiX}x{dpiY}，原始尺寸: {ActualWidth}x{ActualHeight}，调整后: {width}x{height}");
                     
@@ -217,14 +218,14 @@ namespace MusicBridge
                 else
                 {
                     // 退回到原来的实现（无DPI感知）
-                    bool moved = WinAPI.MoveWindow(_hostedAppHwnd, 0, 0, (int)this.ActualWidth, (int)this.ActualHeight, true);
+                    bool moved = WinAPI.MoveWindow(_hostedAppHwnd, 0, 0, (int)ActualWidth, (int)ActualHeight, true);
                     Debug.WriteLine($"[AppHost Resize] 调整嵌入窗口 {_hostedAppHwnd} 大小为 {ActualWidth}x{ActualHeight}，结果: {moved}");
                 }
             }
         }
 
         // 处理窗口消息 (可选，但 WM_SIZE 很重要)
-        protected override IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        protected override nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
         {
             // 只处理我们自己创建的宿主窗口的消息
             if (hwnd == _hostHwnd)
@@ -255,20 +256,20 @@ namespace MusicBridge
                     case 0x010E: // WM_IME_ENDCOMPOSITION
                     case 0x010F: // WM_IME_COMPOSITION
                         // 如果有嵌入窗口且有效，则转发键盘和输入法消息
-                        if (_hostedAppHwnd != IntPtr.Zero && WinAPI.IsWindow(_hostedAppHwnd))
+                        if (_hostedAppHwnd != nint.Zero && WinAPI.IsWindow(_hostedAppHwnd))
                         {
                             // --- 修改：根据控制器类型选择转发方式 ---
                             if (CurrentController is Controllers.NeteaseMusicController)
                             {
                                 // 网易云：仅使用 SendMessage
-                                IntPtr result = WinAPI.SendMessage(_hostedAppHwnd, msg, wParam, lParam);
+                                nint result = WinAPI.SendMessage(_hostedAppHwnd, msg, wParam, lParam);
                                 Debug.WriteLine($"[AppHost KeyEvent][Netease] SendMessage 0x{msg:X4} to {_hostedAppHwnd}, Result: {result}");
                             }
                             else
                             {
                                 // 其他应用：使用 PostMessage + SendMessage (旧方式)
                                 WinAPI.PostMessage(_hostedAppHwnd, msg, wParam, lParam);
-                                IntPtr result = WinAPI.SendMessage(_hostedAppHwnd, msg, wParam, lParam);
+                                nint result = WinAPI.SendMessage(_hostedAppHwnd, msg, wParam, lParam);
                                 Debug.WriteLine($"[AppHost KeyEvent][Other] Post+SendMessage 0x{msg:X4} to {_hostedAppHwnd}, Result: {result}");
                             }
                             // --- 修改结束 ---
@@ -292,7 +293,7 @@ namespace MusicBridge
                     // 处理焦点获取
                     case WinAPI.WM_SETFOCUS:
                         // 当宿主获得焦点时，将焦点传递给嵌入窗口
-                        if (_hostedAppHwnd != IntPtr.Zero && WinAPI.IsWindow(_hostedAppHwnd))
+                        if (_hostedAppHwnd != nint.Zero && WinAPI.IsWindow(_hostedAppHwnd))
                         {
                             WinAPI.SetFocus(_hostedAppHwnd);
                             Debug.WriteLine($"[AppHost Focus] 将焦点设置到嵌入窗口 {_hostedAppHwnd}");
@@ -304,7 +305,7 @@ namespace MusicBridge
                     case WinAPI.WM_LBUTTONDOWN:
                     case WinAPI.WM_RBUTTONDOWN:
                     case WinAPI.WM_MBUTTONDOWN:
-                        if (_hostedAppHwnd != IntPtr.Zero && WinAPI.IsWindow(_hostedAppHwnd))
+                        if (_hostedAppHwnd != nint.Zero && WinAPI.IsWindow(_hostedAppHwnd))
                         {
                             WinAPI.SetFocus(_hostedAppHwnd);
                             // 不标记为已处理，让消息继续传递
@@ -312,7 +313,7 @@ namespace MusicBridge
                         break;
                     case WinAPI.WM_NCHITTEST: // 禁止调整大小和移动，所有区域都当作客户区处理
                         handled = true;
-                        return new IntPtr(WinAPI.HTCLIENT);
+                        return new nint(WinAPI.HTCLIENT);
                     case WinAPI.WM_SYSCOMMAND: // 拦截系统移动和调整大小命令
                         int sysCmd = wParam.ToInt32() & 0xFFF0;
                         if (sysCmd == WinAPI.SC_MOVE || sysCmd == WinAPI.SC_SIZE)
@@ -328,6 +329,6 @@ namespace MusicBridge
 
         // 获取父窗口句柄
         [DllImport("user32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
-        public static extern IntPtr GetParent(IntPtr hWnd);
+        public static extern nint GetParent(nint hWnd);
     }
 }

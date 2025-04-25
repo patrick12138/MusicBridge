@@ -1,10 +1,11 @@
 using MusicBridge.Controllers;
+using MusicBridge.Utils.Window;
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows.Threading;
 
-namespace MusicBridge.Utils
+namespace MusicBridge.Utils.UI
 {
     /// <summary>
     /// 管理应用切换逻辑，实现自动切换、关闭和启动
@@ -16,7 +17,7 @@ namespace MusicBridge.Utils
         private readonly WindowEmbedManager _windowEmbedManager;
         private readonly MediaPlayerHandler _mediaPlayerHandler;
         
-        private IMusicAppController _currentController;
+        private IMusicApp _currentController;
 
         /// <summary>
         /// 创建应用切换管理器实例
@@ -36,12 +37,12 @@ namespace MusicBridge.Utils
         /// <summary>
         /// 获取当前控制器
         /// </summary>
-        public IMusicAppController CurrentController => _currentController;
+        public IMusicApp CurrentController => _currentController;
 
         /// <summary>
         /// 设置当前控制器（不执行切换操作）
         /// </summary>
-        public void SetCurrentController(IMusicAppController controller)
+        public void SetCurrentController(IMusicApp controller)
         {
             _currentController = controller;
         }
@@ -49,7 +50,7 @@ namespace MusicBridge.Utils
         /// <summary>
         /// 切换到新应用 - 自动关闭当前应用并启动新应用
         /// </summary>
-        public async Task<bool> SwitchToAppAsync(IMusicAppController newController)
+        public async Task<bool> SwitchToAppAsync(IMusicApp newController)
         {
             if (newController == null)
             {
@@ -78,8 +79,8 @@ namespace MusicBridge.Utils
                     else
                     {
                         _updateStatus($"重新嵌入 {newController.Name}...");
-                        IntPtr hwnd = WinAPI.FindMainWindow(newController.ProcessName);
-                        if (hwnd != IntPtr.Zero && WinAPI.IsWindow(hwnd))
+                        nint hwnd = WinAPI.FindMainWindow(newController.ProcessName);
+                        if (hwnd != nint.Zero && WinAPI.IsWindow(hwnd))
                         {
                             return _windowEmbedManager.EmbedExistingWindow(hwnd);
                         }

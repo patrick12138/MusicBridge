@@ -29,7 +29,7 @@ namespace MusicBridge.Utils
         /// <summary>
         /// 向指定窗口发送媒体控制命令
         /// </summary>
-        public async Task<bool> SendMediaCommandAsync(IMusicAppController controller, IntPtr hwnd, MediaCommand command)
+        public async Task<bool> SendMediaCommandAsync(IMusicApp controller, IntPtr hwnd, MediaCommand command)
         {
             if (controller == null || hwnd == IntPtr.Zero)
             {
@@ -76,7 +76,7 @@ namespace MusicBridge.Utils
         /// <summary>
         /// 关闭音乐应用
         /// </summary>
-        public bool CloseApp(IMusicAppController controller)
+        public bool CloseApp(IMusicApp controller)
         {
             if (controller == null)
             {

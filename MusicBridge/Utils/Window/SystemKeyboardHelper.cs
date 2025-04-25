@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 
-namespace MusicBridge.Utils
+namespace MusicBridge.Utils.Window
 {
     /// <summary>
     /// 提供系统虚拟键盘操作的工具类

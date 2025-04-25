@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
-namespace MusicBridge.Utils
+namespace MusicBridge.Utils.UI
 {
     /// <summary>
     /// 管理应用图标的选择状态

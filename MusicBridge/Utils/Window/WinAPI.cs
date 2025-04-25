@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace MusicBridge
+namespace MusicBridge.Utils.Window
 {
     public static class WinAPI
     {
@@ -202,7 +202,7 @@ namespace MusicBridge
             public ushort wScan;
             public uint dwFlags;
             public uint time;
-            public IntPtr dwExtraInfo;
+            public nint dwExtraInfo;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -213,7 +213,7 @@ namespace MusicBridge
             public uint mouseData;
             public uint dwFlags;
             public uint time;
-            public IntPtr dwExtraInfo;
+            public nint dwExtraInfo;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -247,118 +247,118 @@ namespace MusicBridge
         public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
         [DllImport("user32.dll")]
-        public static extern IntPtr GetMessageExtraInfo();
+        public static extern nint GetMessageExtraInfo();
 
         // --- Windows API 函数导入 ---
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-        public static extern IntPtr SendMessageW(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+        public static extern nint SendMessageW(nint hWnd, int Msg, nint wParam, nint lParam);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)] // 使用 CharSet.Auto 自动处理 ANSI/Unicode
-        public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, [MarshalAs(UnmanagedType.LPWStr)] string lParam); // lParam 作为 LPWStr 发送 Unicode 字符串
+        public static extern nint SendMessage(nint hWnd, int Msg, nint wParam, [MarshalAs(UnmanagedType.LPWStr)] string lParam); // lParam 作为 LPWStr 发送 Unicode 字符串
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+        public static extern nint SendMessage(nint hWnd, int Msg, nint wParam, nint lParam);
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-        public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+        public static extern int GetWindowText(nint hWnd, StringBuilder lpString, int nMaxCount);
 
         [DllImport("user32.dll")]
-        public static extern int GetWindowTextLength(IntPtr hWnd);
+        public static extern int GetWindowTextLength(nint hWnd);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool EnumWindows(EnumWindowsProc enumProc, IntPtr lParam);
+        public static extern bool EnumWindows(EnumWindowsProc enumProc, nint lParam);
 
-        public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+        public delegate bool EnumWindowsProc(nint hWnd, nint lParam);
 
         [DllImport("user32.dll", SetLastError = true)]
-        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        public static extern uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool IsWindowVisible(IntPtr hWnd);
+        public static extern bool IsWindowVisible(nint hWnd);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool IsIconic(IntPtr hWnd);
+        public static extern bool IsIconic(nint hWnd);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool IsWindow(IntPtr hWnd); // 检查窗口句柄是否有效
+        public static extern bool IsWindow(nint hWnd); // 检查窗口句柄是否有效
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        public static extern bool ShowWindow(nint hWnd, int nCmdShow);
 
         // --- 用于嵌入窗口的 API ---
         [DllImport("user32.dll", SetLastError = true)]
-        public static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent); // 设置父窗口
+        public static extern nint SetParent(nint hWndChild, nint hWndNewParent); // 设置父窗口
 
         [DllImport("user32.dll", SetLastError = true)]
-        public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint); // 移动并调整窗口大小
+        public static extern bool MoveWindow(nint hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint); // 移动并调整窗口大小
 
         [DllImport("user32.dll", SetLastError = true)]
-        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags); // 设置窗口位置、大小和Z顺序
+        public static extern bool SetWindowPos(nint hWnd, nint hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags); // 设置窗口位置、大小和Z顺序
 
         [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
-        private static extern IntPtr GetWindowLongPtr32(IntPtr hWnd, int nIndex);
+        private static extern nint GetWindowLongPtr32(nint hWnd, int nIndex);
 
         [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
-        private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+        private static extern nint GetWindowLongPtr64(nint hWnd, int nIndex);
 
         // 自动选择32/64位 GetWindowLongPtr
-        public static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex)
+        public static nint GetWindowLongPtr(nint hWnd, int nIndex)
         {
-            return IntPtr.Size == 8 ? GetWindowLongPtr64(hWnd, nIndex) : GetWindowLongPtr32(hWnd, nIndex);
+            return nint.Size == 8 ? GetWindowLongPtr64(hWnd, nIndex) : GetWindowLongPtr32(hWnd, nIndex);
         }
 
         [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
-        private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int dwNewLong);
+        private static extern int SetWindowLong32(nint hWnd, int nIndex, int dwNewLong);
 
         [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
-        private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+        private static extern nint SetWindowLongPtr64(nint hWnd, int nIndex, nint dwNewLong);
 
         // 自动选择32/64位 SetWindowLongPtr
-        public static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
+        public static nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong)
         {
-            if (IntPtr.Size == 8)
+            if (nint.Size == 8)
                 return SetWindowLongPtr64(hWnd, nIndex, dwNewLong);
             else
-                return new IntPtr(SetWindowLong32(hWnd, nIndex, dwNewLong.ToInt32()));
+                return new nint(SetWindowLong32(hWnd, nIndex, dwNewLong.ToInt32()));
         }
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern IntPtr CreateWindowEx(
+        public static extern nint CreateWindowEx(
            uint dwExStyle, string lpClassName, string? lpWindowName, uint dwStyle,
            int x, int y, int nWidth, int nHeight,
-           IntPtr hWndParent, IntPtr hMenu, IntPtr hInstance, IntPtr lpParam); // 创建窗口 (用于 HwndHost)
+           nint hWndParent, nint hMenu, nint hInstance, nint lpParam); // 创建窗口 (用于 HwndHost)
 
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool DestroyWindow(IntPtr hwnd); // 销毁窗口 (用于 HwndHost)
+        public static extern bool DestroyWindow(nint hwnd); // 销毁窗口 (用于 HwndHost)
 
         [DllImport("user32.dll", SetLastError = true)]
-        public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string? lpszWindow);
+        public static extern nint FindWindowEx(nint hwndParent, nint hwndChildAfter, string lpszClass, string? lpszWindow);
 
         [DllImport("user32.dll")]
-        public static extern IntPtr SetFocus(IntPtr hWnd);
+        public static extern nint SetFocus(nint hWnd);
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+        public static extern int GetClassName(nint hWnd, StringBuilder lpClassName, int nMaxCount);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool EnumChildWindows(IntPtr hwndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        public static extern bool EnumChildWindows(nint hwndParent, EnumWindowsProc lpEnumFunc, nint lParam);
         [DllImport("user32.dll")]
-        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, nuint dwExtraInfo);
 
         // 获取当前拥有键盘焦点的窗口句柄
         [DllImport("user32.dll")]
-        public static extern IntPtr GetFocus();
+        public static extern nint GetFocus();
 
         // 获取指定窗口的父窗口句柄
         [DllImport("user32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
-        public static extern IntPtr GetParent(IntPtr hWnd);
+        public static extern nint GetParent(nint hWnd);
 
         /// <summary>
         /// 异步模拟单个按键的按下和抬起。
@@ -366,9 +366,9 @@ namespace MusicBridge
         /// <param name="vkCode">要模拟的虚拟键码。</param>
         public static async Task SendKeyPressAsync(byte vkCode)
         {
-            keybd_event(vkCode, 0, KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero); // 按下
+            keybd_event(vkCode, 0, KEYEVENTF_EXTENDEDKEY, nuint.Zero); // 按下
             await Task.Delay(30); // 模拟短暂按住
-            keybd_event(vkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero); // 抬起
+            keybd_event(vkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, nuint.Zero); // 抬起
         }
 
         /// <summary>
@@ -378,20 +378,20 @@ namespace MusicBridge
         /// <param name="vkCode">普通键的虚拟键码 (例如 VK_RIGHT)。</param>
         public static async Task SendCombinedKeyPressAsync(byte modifierVkCode, byte vkCode)
         {
-            keybd_event(modifierVkCode, 0, KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero); // 按下修饰键
+            keybd_event(modifierVkCode, 0, KEYEVENTF_EXTENDEDKEY, nuint.Zero); // 按下修饰键
             await Task.Delay(30);
-            keybd_event(vkCode, 0, KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero);         // 按下普通键
+            keybd_event(vkCode, 0, KEYEVENTF_EXTENDEDKEY, nuint.Zero);         // 按下普通键
             await Task.Delay(30);
-            keybd_event(vkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero); // 抬起普通键
+            keybd_event(vkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, nuint.Zero); // 抬起普通键
             await Task.Delay(30);
-            keybd_event(modifierVkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero); // 抬起修饰键
+            keybd_event(modifierVkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, nuint.Zero); // 抬起修饰键
         }
 
         // --- 新增：使用 SendInput 模拟组合键 --- 
         public static async Task SimulateKeyPressWithModifiers(List<ushort> modifierKeys, ushort primaryKey)
         {
             List<INPUT> inputs = new List<INPUT>();
-            IntPtr extraInfo = GetMessageExtraInfo();
+            nint extraInfo = GetMessageExtraInfo();
 
             // 1. 按下所有修饰键
             foreach (var modKey in modifierKeys)
@@ -445,11 +445,11 @@ namespace MusicBridge
         }
 
         // 查找主窗口方法 (保持不变，用于初始查找)
-        public static IntPtr FindMainWindow(string processName)
+        public static nint FindMainWindow(string processName)
         {
-            IntPtr foundHwnd = IntPtr.Zero;
+            nint foundHwnd = nint.Zero;
             int maxTitleLen = 0;
-            List<IntPtr> potentialHwnds = new List<IntPtr>();
+            List<nint> potentialHwnds = new List<nint>();
 
             EnumWindows((hWnd, lParam) =>
             {
@@ -478,16 +478,16 @@ namespace MusicBridge
                 }
                 catch { /* 忽略查找过程中的进程退出等错误 */ }
                 return true;
-            }, IntPtr.Zero);
+            }, nint.Zero);
 
-            if (foundHwnd != IntPtr.Zero) return foundHwnd;
+            if (foundHwnd != nint.Zero) return foundHwnd;
             if (potentialHwnds.Count == 1) return potentialHwnds[0];
-            return IntPtr.Zero;
+            return nint.Zero;
         }
 
         // 将消息发送到指定窗口的消息队列，然后立即返回（异步）
         [DllImport("user32.dll", SetLastError = true)]
-        public static extern bool PostMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+        public static extern bool PostMessage(nint hWnd, int Msg, nint wParam, nint lParam);
         
         // 将虚拟键码映射到扫描码
         [DllImport("user32.dll")]
@@ -522,13 +522,13 @@ namespace MusicBridge
         }
         
         [DllImport("user32.dll")]
-        public static extern bool GetWindowRect(IntPtr hWnd, ref RECT lpRect);
+        public static extern bool GetWindowRect(nint hWnd, ref RECT lpRect);
         
         [DllImport("user32.dll")]
-        public static extern bool GetClientRect(IntPtr hWnd, ref RECT lpRect);
+        public static extern bool GetClientRect(nint hWnd, ref RECT lpRect);
         
         [DllImport("user32.dll")]
-        public static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
+        public static extern bool ClientToScreen(nint hWnd, ref POINT lpPoint);
         
         [DllImport("user32.dll")]
         public static extern int GetSystemMetrics(int nIndex);
@@ -536,25 +536,25 @@ namespace MusicBridge
         // 添加 SetForegroundWindow 函数声明
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool SetForegroundWindow(IntPtr hWnd);
+        public static extern bool SetForegroundWindow(nint hWnd);
         
         // 向指定窗口发送按键序列
-        public static void SendKeys(IntPtr hWnd, string keys)
+        public static void SendKeys(nint hWnd, string keys)
         {
             // 确保窗口处于前台
             SetForegroundWindow(hWnd);
-            System.Threading.Thread.Sleep(100); // 给系统一点时间响应
+            Thread.Sleep(100); // 给系统一点时间响应
            
         }
 
         // 添加 ClickWindowAt 方法 - 点击窗口的指定位置
-        public static void ClickWindowAt(IntPtr hWnd, int x, int y)
+        public static void ClickWindowAt(nint hWnd, int x, int y)
         {
             try
             {
                 // 确保窗口处于前台
                 SetForegroundWindow(hWnd);
-                System.Threading.Thread.Sleep(50);
+                Thread.Sleep(50);
 
                 // 获取窗口客户区域在屏幕上的坐标
                 RECT rect = new RECT();
@@ -572,8 +572,8 @@ namespace MusicBridge
                 int screenHeight = GetSystemMetrics(SM_CYSCREEN);
                 
                 // 将坐标转换为规范化坐标 (0-65535)
-                int normalizedX = (screenX * 65535) / screenWidth;
-                int normalizedY = (screenY * 65535) / screenHeight;
+                int normalizedX = screenX * 65535 / screenWidth;
+                int normalizedY = screenY * 65535 / screenHeight;
                 
                 // 准备输入
                 INPUT[] inputs = new INPUT[3];
@@ -653,6 +653,6 @@ namespace MusicBridge
         // 启用或禁用窗口
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool EnableWindow(IntPtr hWnd, bool bEnable);
+        public static extern bool EnableWindow(nint hWnd, bool bEnable);
     }
 }

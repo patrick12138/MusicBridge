@@ -7,7 +7,7 @@
     }
 
     // 音乐软件控制器接口
-    public interface IMusicAppController
+    public interface IMusicApp
     {
         string Name { get; }          // 应用名称
         string ProcessName { get; }   // 进程名称
