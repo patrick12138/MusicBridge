@@ -121,6 +121,7 @@ namespace MusicBridge.Utils
                     if (success)
                     {
                         _embeddedWindowHandle = targetHwnd; // 记录嵌入的句柄
+                        _appHost.CurrentController = controller; // --- 新增：设置 AppHost 的当前控制器 ---
                         _updateStatus($"{controller.Name} 已嵌入。");
                         // 隐藏加载提示
                         _uiStateManager?.HideLoadingOverlay();
@@ -166,7 +167,10 @@ namespace MusicBridge.Utils
                 return;
             }
             
-            _appHost?.RestoreHostedWindow(); // AppHost 负责恢复窗口
+            if (_appHost != null)
+            {
+                _appHost.RestoreHostedWindow(); // AppHost 负责恢复窗口 (内部会清除 CurrentController)
+            }
             _embeddedWindowHandle = IntPtr.Zero; // 清除记录
             Debug.WriteLine("嵌入窗口已分离");
         }
@@ -209,6 +213,8 @@ namespace MusicBridge.Utils
             if (success)
             {
                 _embeddedWindowHandle = hwnd; // 记录嵌入的句柄
+                // --- 注意：这里无法直接设置 AppHost.CurrentController，因为它不知道是哪个 Controller ---
+                // --- 需要在调用 EmbedExistingWindow 的地方 (MainWindow.xaml.cs) 设置 ---
                 _updateStatus("窗口已重新嵌入。");
                 return true;
             }

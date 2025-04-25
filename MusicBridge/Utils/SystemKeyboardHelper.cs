@@ -19,20 +19,6 @@ namespace MusicBridge.Utils
 
         // 进程实例，用于跟踪虚拟键盘进程
         private static Process _oskProcess = null;
-        /// <summary>
-        /// 检查系统虚拟键盘是否正在运行
-        /// </summary>
-        public static bool IsKeyboardRunning()
-        {
-            if (_oskProcess != null && !_oskProcess.HasExited)
-            {
-                return true;
-            }
-
-            // 检查是否有其他实例在运行
-            Process[] processes = Process.GetProcessesByName("osk");
-            return processes.Length > 0;
-        }
 
         /// <summary>
         /// 检查系统虚拟键盘是否正在运行
@@ -41,6 +27,11 @@ namespace MusicBridge.Utils
         {
             try
             {
+                if (_oskProcess != null && !_oskProcess.HasExited)
+                {
+                    return true;
+                }
+
                 Process[] procs = Process.GetProcessesByName("osk");
                 return procs != null && procs.Length > 0;
             }

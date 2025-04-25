@@ -15,6 +15,10 @@ namespace MusicBridge
         private IntPtr _originalParent = IntPtr.Zero;   // 记录原始父窗口 (虽然通常恢复到桌面)
         private long _originalStyles = 0;               // 记录原始窗口样式
 
+        // --- 新增：存储当前嵌入的控制器实例 ---
+        public Controllers.IMusicAppController CurrentController { get; set; }
+        // --- 新增结束 ---
+
         // 公开属性，获取当前嵌入的应用窗口句柄
         public IntPtr HostedAppWindowHandle => _hostedAppHwnd;
 
@@ -82,6 +86,7 @@ namespace MusicBridge
             // 如果已经有窗口嵌入，先恢复它
             if (_hostedAppHwnd != IntPtr.Zero && _hostedAppHwnd != appWindowHandle)
             {
+                Debug.WriteLine($"[AppHost Embed] 检测到已嵌入窗口 {_hostedAppHwnd}，先执行恢复...");
                 RestoreHostedWindow();
             }
 
@@ -106,21 +111,51 @@ namespace MusicBridge
             Debug.WriteLine($"[AppHost Embed] SetParent 成功，旧父窗口: {previousParent}");
 
             // 3. 修改窗口样式 (移除边框、标题栏，添加 WS_CHILD)
-            // 计算新样式：保留原始样式，移除弹窗/边框/标题栏，强制添加 Child 样式
-            long newStyle = (_originalStyles & ~((long)WinAPI.WS_POPUP | (long)WinAPI.WS_CAPTION | (long)WinAPI.WS_BORDER | (long)WinAPI.WS_DLGFRAME | (long)WinAPI.WS_THICKFRAME)) | (long)WinAPI.WS_CHILD;
-            Debug.WriteLine($"[AppHost Embed] 设置新样式: 0x{newStyle:X}");
-            WinAPI.SetWindowLongPtr(_hostedAppHwnd, WinAPI.GWL_STYLE, new IntPtr(newStyle));
+            // 移除弹窗、边框、标题栏、系统菜单、最小化/最大化按钮，并强制设置为子窗口样式，防止调整和移动
+            long newStyle = (_originalStyles & ~((long)WinAPI.WS_POPUP | (long)WinAPI.WS_CAPTION | (long)WinAPI.WS_BORDER | (long)WinAPI.WS_DLGFRAME | (long)WinAPI.WS_THICKFRAME | (long)WinAPI.WS_SYSMENU | (long)WinAPI.WS_MINIMIZEBOX | (long)WinAPI.WS_MAXIMIZEBOX)) | (long)WinAPI.WS_CHILD;
+            Debug.WriteLine($"[AppHost Embed] 准备设置新样式: 0x{newStyle:X}");
+            IntPtr previousStyle = WinAPI.SetWindowLongPtr(_hostedAppHwnd, WinAPI.GWL_STYLE, new IntPtr(newStyle));
+            // 检查 SetWindowLongPtr 是否成功 (虽然它通常返回旧样式值，但在失败时可能返回0并设置LastWin32Error)
+            if (previousStyle == IntPtr.Zero && Marshal.GetLastWin32Error() != 0)
+            {
+                 int error = Marshal.GetLastWin32Error();
+                 Debug.WriteLine($"[AppHost Embed] SetWindowLongPtr 可能失败，错误码: {error}。旧样式值: 0x{_originalStyles:X}");
+                 // 这里不直接返回 false，因为有时即使有错误，样式也可能部分应用
+            }
+            else
+            {
+                 Debug.WriteLine($"[AppHost Embed] SetWindowLongPtr 调用完成，返回的旧样式值指针: {previousStyle} (不代表错误)");
+            }
+
 
             // 4. 强制应用样式更改并调整大小/位置
-            // 移动窗口到宿主客户区的 (0,0)，并设置为宿主的大小
-            bool moved = WinAPI.MoveWindow(_hostedAppHwnd, 0, 0, (int)this.ActualWidth, (int)this.ActualHeight, true);
-            Debug.WriteLine($"[AppHost Embed] MoveWindow 结果: {moved}");
+            // 使用 SetWindowPos 替代 MoveWindow，因为它更灵活，并且可以同时发送 SWP_FRAMECHANGED
+            Debug.WriteLine($"[AppHost Embed] 准备调用 SetWindowPos 调整位置和大小并应用框架更改...");
+            bool posChanged = WinAPI.SetWindowPos(_hostedAppHwnd, IntPtr.Zero, // 不改变 Z 顺序
+                0, 0, // 新位置 (x, y)
+                (int)this.ActualWidth, (int)this.ActualHeight, // 新大小 (width, height)
+                WinAPI.SWP_FRAMECHANGED | WinAPI.SWP_NOACTIVATE | WinAPI.SWP_NOZORDER); // 标志：应用框架更改，不激活，不改变 Z 顺序
 
-            // 再次调用 SetWindowPos 确保样式生效
-            WinAPI.SetWindowPos(_hostedAppHwnd, IntPtr.Zero, 0, 0, 0, 0,
-                WinAPI.SWP_NOMOVE | WinAPI.SWP_NOSIZE | WinAPI.SWP_NOZORDER | WinAPI.SWP_FRAMECHANGED | WinAPI.SWP_NOACTIVATE);
+            if (!posChanged)
+            {
+                int error = Marshal.GetLastWin32Error();
+                Debug.WriteLine($"[AppHost Embed] SetWindowPos 调整大小/位置失败，错误码: {error}");
+                // 即使失败也继续，有时窗口仍然会被放置
+            }
+            else
+            {
+                 Debug.WriteLine($"[AppHost Embed] SetWindowPos 调整大小/位置成功。");
+            }
+
+            // 再次调用 SetWindowPos 确保样式生效 (有时需要多次调用或特定组合)
+            // 这次只发送 FRAMECHANGED，不改变位置大小
+            // Debug.WriteLine($"[AppHost Embed] 再次调用 SetWindowPos 仅应用框架更改...");
+            // WinAPI.SetWindowPos(_hostedAppHwnd, IntPtr.Zero, 0, 0, 0, 0,
+            //     WinAPI.SWP_NOMOVE | WinAPI.SWP_NOSIZE | WinAPI.SWP_NOZORDER | WinAPI.SWP_FRAMECHANGED | WinAPI.SWP_NOACTIVATE);
+
 
             Debug.WriteLine($"[AppHost Embed] 窗口 HWND: {_hostedAppHwnd} 嵌入完成。");
+            // 注意：CurrentController 需要在调用 EmbedWindow 的地方设置
             return true;
         }
 
@@ -153,6 +188,7 @@ namespace MusicBridge
             _hostedAppHwnd = IntPtr.Zero; // 清除记录
             _originalStyles = 0;
             _originalParent = IntPtr.Zero;
+            CurrentController = null; // --- 新增：清除控制器引用 ---
         }
 
         // 当 HwndHost (即此控件) 大小改变时，调整嵌入窗口的大小
@@ -221,11 +257,22 @@ namespace MusicBridge
                         // 如果有嵌入窗口且有效，则转发键盘和输入法消息
                         if (_hostedAppHwnd != IntPtr.Zero && WinAPI.IsWindow(_hostedAppHwnd))
                         {
-                            // 使用PostMessage替代SendMessage来异步转发消息，避免阻塞
-                            WinAPI.PostMessage(_hostedAppHwnd, msg, wParam, lParam);
-                            // 也发送同步消息以确保必要时能够同步处理
-                            WinAPI.SendMessage(_hostedAppHwnd, msg, wParam, lParam);
-                            
+                            // --- 修改：根据控制器类型选择转发方式 ---
+                            if (CurrentController is Controllers.NeteaseMusicController)
+                            {
+                                // 网易云：仅使用 SendMessage
+                                IntPtr result = WinAPI.SendMessage(_hostedAppHwnd, msg, wParam, lParam);
+                                Debug.WriteLine($"[AppHost KeyEvent][Netease] SendMessage 0x{msg:X4} to {_hostedAppHwnd}, Result: {result}");
+                            }
+                            else
+                            {
+                                // 其他应用：使用 PostMessage + SendMessage (旧方式)
+                                WinAPI.PostMessage(_hostedAppHwnd, msg, wParam, lParam);
+                                IntPtr result = WinAPI.SendMessage(_hostedAppHwnd, msg, wParam, lParam);
+                                Debug.WriteLine($"[AppHost KeyEvent][Other] Post+SendMessage 0x{msg:X4} to {_hostedAppHwnd}, Result: {result}");
+                            }
+                            // --- 修改结束 ---
+
                             // 调试输出
                             if (msg == WinAPI.WM_CHAR)
                             {
@@ -263,46 +310,20 @@ namespace MusicBridge
                             // 不标记为已处理，让消息继续传递
                         }
                         break;
+                    case WinAPI.WM_NCHITTEST: // 禁止调整大小和移动，所有区域都当作客户区处理
+                        handled = true;
+                        return new IntPtr(WinAPI.HTCLIENT);
+                    case WinAPI.WM_SYSCOMMAND: // 拦截系统移动和调整大小命令
+                        int sysCmd = wParam.ToInt32() & 0xFFF0;
+                        if (sysCmd == WinAPI.SC_MOVE || sysCmd == WinAPI.SC_SIZE)
+                        {
+                            handled = true; // 禁止执行移动和调整大小
+                        }
+                        break;
                 }
             }
             // 调用基类处理其他消息
             return base.WndProc(hwnd, msg, wParam, lParam, ref handled);
-        }
-
-        // 发送字符串到嵌入窗口
-        public void SendTextToEmbeddedWindow(string text)
-        {
-            if (_hostedAppHwnd == IntPtr.Zero || !WinAPI.IsWindow(_hostedAppHwnd))
-            {
-                Debug.WriteLine("[AppHost SendText] 无法发送文本，嵌入窗口无效");
-                return;
-            }
-
-            // 确保嵌入窗口有焦点
-            WinAPI.SetForegroundWindow(_hostedAppHwnd);
-            WinAPI.SetFocus(_hostedAppHwnd);
-            
-            // 等待窗口获取焦点
-            System.Threading.Thread.Sleep(50);
-            
-            // 逐个字符发送
-            foreach (char c in text)
-            {
-                // 发送WM_CHAR消息
-                IntPtr charCode = new IntPtr(c);
-                WinAPI.PostMessage(_hostedAppHwnd, WinAPI.WM_CHAR, charCode, IntPtr.Zero);
-                WinAPI.SendMessage(_hostedAppHwnd, WinAPI.WM_CHAR, charCode, IntPtr.Zero);
-                
-                // 短暂延迟确保消息处理
-                System.Threading.Thread.Sleep(5);
-            }
-            
-            // 可选：发送回车键
-            // WinAPI.PostMessage(_hostedAppHwnd, WinAPI.WM_KEYDOWN, new IntPtr(WinAPI.VK_RETURN), IntPtr.Zero);
-            // System.Threading.Thread.Sleep(5);
-            // WinAPI.PostMessage(_hostedAppHwnd, WinAPI.WM_KEYUP, new IntPtr(WinAPI.VK_RETURN), IntPtr.Zero);
-            
-            Debug.WriteLine($"[AppHost SendText] 发送文本 '{text}' 到窗口 {_hostedAppHwnd}");
         }
 
         // 获取父窗口句柄

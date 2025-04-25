@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -131,17 +132,17 @@ namespace MusicBridge
         {
             // 直接关闭所有音乐应用
             CloseAllMusicApps();
-
+    
             // 尝试恢复（分离）当前嵌入的窗口
             _windowEmbedManager.DetachEmbeddedWindow();
         }
-
+    
         // 退出前关闭所有音乐应用
         private void CloseAllMusicApps()
         {
             // 获取所有正在运行的音乐应用
             List<IMusicAppController> runningApps = controllers.Where(c => c.IsRunning()).ToList();
-
+    
             // 如果有运行中的音乐应用，关闭它们
             if (runningApps.Count > 0)
             {
@@ -152,106 +153,7 @@ namespace MusicBridge
                 // 关闭所有运行中的音乐应用
                 foreach (var app in runningApps)
                 {
-                    CloseAppProcess(app);
-                }
-                
-                // 等待应用完全关闭
-                WaitForAppClosing(runningApps);
-            }
-        }
-
-        // 关闭指定应用进程
-        private void CloseAppProcess(IMusicAppController controller)
-        {
-            try
-            {
-                Debug.WriteLine($"正在关闭应用: {controller.Name}");
-                Process[] processes = Process.GetProcessesByName(controller.ProcessName);
-                foreach (var process in processes)
-                {
-                    try
-                    {
-                        // 尝试正常关闭进程
-                        if (!process.HasExited)
-                        {
-                            // 先尝试发送关闭窗口消息
-                            IntPtr hwnd = WinAPI.FindMainWindow(controller.ProcessName);
-                            if (hwnd != IntPtr.Zero)
-                            {
-                                WinAPI.PostMessage(hwnd, WinAPI.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
-                            }
-                            else
-                            {
-                                // 如果找不到窗口，则直接结束进程
-                                process.Kill();
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"关闭 {controller.Name} 进程失败: {ex.Message}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"关闭 {controller.Name} 时发生错误: {ex}");
-            }
-        }
-
-        // 等待应用完全关闭
-        private void WaitForAppClosing(List<IMusicAppController> apps)
-        {
-            // 设置最大等待时间为3秒
-            int maxWaitTime = 3000; // 3秒
-            int startTime = Environment.TickCount;
-            
-            while (Environment.TickCount - startTime < maxWaitTime)
-            {
-                // 检查是否所有应用都已关闭
-                bool allClosed = true;
-                foreach (var app in apps)
-                {
-                    if (app.IsRunning())
-                    {
-                        allClosed = false;
-                        break;
-                    }
-                }
-                
-                if (allClosed)
-                {
-                    Debug.WriteLine("所有音乐应用已成功关闭");
-                    return;
-                }
-                
-                // 短暂等待
-                System.Threading.Thread.Sleep(100);
-            }
-            
-            Debug.WriteLine("等待音乐应用关闭超时，继续退出");
-            
-            // 超时后，强制关闭所有仍在运行的应用
-            foreach (var app in apps)
-            {
-                if (app.IsRunning())
-                {
-                    try
-                    {
-                        Debug.WriteLine($"强制关闭应用: {app.Name}");
-                        Process[] processes = Process.GetProcessesByName(app.ProcessName);
-                        foreach (var process in processes)
-                        {
-                            if (!process.HasExited)
-                            {
-                                process.Kill(true); // 强制立即终止进程
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"强制关闭 {app.Name} 失败: {ex.Message}");
-                    }
+                    _mediaPlayerHandler.CloseApp(app);
                 }
             }
         }
@@ -266,6 +168,13 @@ namespace MusicBridge
         // 定时器触发
         private async void StatusTimer_Tick(object? sender, EventArgs e)
         {
+            // 如果正在加载应用，跳过刷新以避免干扰加载过程中的UI状态
+            if (_isLoadingApp)
+            {
+                Debug.WriteLine("[定时器] 正在加载应用，跳过刷新状态");
+                return;
+            }
+
             // 定期刷新状态
             await RefreshMusicAppStatusAsync();
 
@@ -405,6 +314,9 @@ namespace MusicBridge
             }
         }
 
+        // 定义一个新的标志，用于指示是否正在加载应用
+        private bool _isLoadingApp = false;
+    
         // AppIcon_MouseDown事件 - 处理音乐应用图标点击 - 自动启动和切换
         private async void AppIcon_MouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -413,17 +325,31 @@ namespace MusicBridge
                 if (appIndex < 0 || appIndex >= controllers.Count)
                     return;
                 
-                // 更新选中图标状态
-                _appIconSelector.SelectAppIcon(appIndex);
+                // 设置加载标志，防止定时器任务重新显示操作区域叠加层
+                _isLoadingApp = true;
                 
-                // 使用应用切换管理器执行切换
-                var targetController = controllers[appIndex];
-                
-                // 自动切换到选中的应用
-                await _appSwitchManager.SwitchToAppAsync(targetController);
-                
-                // 刷新状态以更新按钮和UI
-                await RefreshMusicAppStatusAsync();
+                try
+                {
+                    // 立即隐藏操作区域叠加层，避免与加载层重叠显示
+                    OperationOverlay.Visibility = Visibility.Collapsed;
+                    
+                    // 更新选中图标状态
+                    _appIconSelector.SelectAppIcon(appIndex);
+                    
+                    // 使用应用切换管理器执行切换
+                    var targetController = controllers[appIndex];
+                    
+                    // 自动切换到选中的应用
+                    await _appSwitchManager.SwitchToAppAsync(targetController);
+                    
+                    // 刷新状态以更新按钮和UI
+                    await RefreshMusicAppStatusAsync();
+                }
+                finally
+                {
+                    // 无论成功与否，都复位加载标志
+                    _isLoadingApp = false;
+                }
             }
         }
         
@@ -473,8 +399,12 @@ namespace MusicBridge
                 // 尝试重新嵌入窗口
                 if (_windowEmbedManager.EmbedExistingWindow(hwnd))
                 {
+                    // --- 新增：重新嵌入成功后，设置 AppHost 的控制器 ---
+                    AppHostControl.CurrentController = currentController;
+                    // --- 新增结束 ---
+
                     _uiStateManager.UpdateStatus($"{currentController.Name} 已重新嵌入");
-                    
+
                     // 更新UI状态
                     await RefreshMusicAppStatusAsync();
                 }
@@ -537,21 +467,64 @@ namespace MusicBridge
                         return;
                     }
                     _uiStateManager.UpdateStatus("系统虚拟键盘已启动");
-                    await Task.Delay(500);
-                    // 确保焦点回到嵌入窗口
-                    // 新增：多次确保焦点回到嵌入窗口，提升输入成功率
-                    await EnsureEmbeddedWindowInputFocusForKeyboard(embeddedHwnd);
+                    await Task.Delay(500); // 等待 osk.exe 启动
+
+                    // --- 修改：根据控制器类型决定是否强制设置焦点 ---
+                    var currentController = _appSwitchManager.CurrentController; // 获取当前控制器
+                    if (!(currentController is Controllers.NeteaseMusicController))
+                    {
+                        // 如果不是网易云，则尝试设置焦点 (恢复之前的行为)
+                        Debug.WriteLine("[SystemKeyboardButton_Click] 非网易云应用，尝试设置焦点回嵌入窗口...");
+                        await EnsureEmbeddedWindowInputFocusForKeyboard(embeddedHwnd);
+                    }
+                    else
+                    {
+                        Debug.WriteLine("[SystemKeyboardButton_Click] 网易云应用，跳过强制设置焦点。");
+                    }
+                    // --- 修改结束 ---
                 }
                 else // 键盘已运行，需要关闭
                 {
                     SystemKeyboardButton.Background = new SolidColorBrush(Color.FromRgb(232, 244, 255)); // #E8F4FF
                     SystemKeyboardButton.ToolTip = "打开系统虚拟键盘";
-                    WinAPI.SetForegroundWindow(embeddedHwnd);
-                    await Task.Delay(50);
-                    SystemKeyboardHelper.Close();
-                    _uiStateManager.UpdateStatus("系统虚拟键盘已关闭");
-                    await Task.Delay(200);
-                    WinAPI.SetForegroundWindow(embeddedHwnd);
+
+                    // --- 新增：尝试将焦点设置回主窗口，以获取关闭 osk.exe 的权限 ---
+                    try
+                    {
+                        IntPtr mainWindowHandle = new WindowInteropHelper(this).Handle;
+                        if (mainWindowHandle != IntPtr.Zero)
+                        {
+                            Debug.WriteLine("[SystemKeyboardButton_Click] 尝试将焦点设置回主窗口以关闭键盘...");
+                            WinAPI.SetForegroundWindow(mainWindowHandle); // 尝试将主窗口带到前台
+                            WinAPI.SetFocus(mainWindowHandle);           // 尝试设置键盘焦点到主窗口
+                            await Task.Delay(100); // 短暂延迟，等待焦点切换生效
+                        }
+                        else
+                        {
+                             Debug.WriteLine("[SystemKeyboardButton_Click] 获取主窗口句柄失败，无法设置焦点。");
+                        }
+                    }
+                    catch (Exception focusEx)
+                    {
+                        Debug.WriteLine($"[SystemKeyboardButton_Click] 设置主窗口焦点时出错: {focusEx.Message}");
+                        // 即使设置焦点失败，也继续尝试关闭键盘
+                    }
+                    // --- 新增结束 ---
+
+                    // 调用关闭方法
+                    bool closed = SystemKeyboardHelper.Close();
+
+                    if (closed)
+                    {
+                        _uiStateManager.UpdateStatus("系统虚拟键盘已关闭");
+                    }
+                    else
+                    {
+                         _uiStateManager.UpdateStatus("关闭系统虚拟键盘失败 (可能需要管理员权限)");
+                         // 即使关闭失败，也更新按钮状态
+                         SystemKeyboardButton.Background = new SolidColorBrush(Color.FromRgb(232, 244, 255)); // #E8F4FF
+                         SystemKeyboardButton.ToolTip = "打开系统虚拟键盘";
+                    }
                 }
             }
             catch (Exception ex)

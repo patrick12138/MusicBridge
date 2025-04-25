@@ -24,6 +24,20 @@ namespace MusicBridge
         public const int WM_RBUTTONDOWN = 0x0204; // 鼠标右键按下消息
         public const int WM_MBUTTONDOWN = 0x0207; // 鼠标中键按下消息
         
+        // 添加窗口移动相关消息
+        public const int WM_NCLBUTTONDOWN = 0x00A1; // 非客户区鼠标左键按下（如标题栏、边框）
+        public const int WM_NCRBUTTONDOWN = 0x00A4; // 非客户区鼠标右键按下
+        public const int WM_NCHITTEST = 0x0084;     // 用于处理窗口点击区域测试
+        public const int WM_MOVING = 0x0216;        // 窗口正在移动
+        public const int WM_MOVE = 0x0003;          // 窗口已经移动
+        public const int WM_ENTERSIZEMOVE = 0x0231; // 窗口开始移动或改变大小
+        public const int WM_EXITSIZEMOVE = 0x0232;  // 窗口结束移动或改变大小
+        public const int WM_SYSCOMMAND = 0x0112;    // 系统命令消息（移动、大小等）
+        
+        // 系统命令常量
+        public const int SC_MOVE = 0xF010;          // 移动窗口系统命令
+        public const int SC_SIZE = 0xF000;          // 调整窗口大小系统命令
+
         // --- 媒体控制按键虚拟键码 ---
         public const byte VK_MEDIA_NEXT_TRACK = 0xB0;  // 多媒体下一曲键
         public const byte VK_MEDIA_PREV_TRACK = 0xB1;  // 多媒体上一曲键
@@ -45,9 +59,56 @@ namespace MusicBridge
         public const uint WS_CLIPCHILDREN = 0x02000000; // 裁剪子窗口区域
         public const uint WS_POPUP = 0x80000000;       // 弹出窗口样式
         public const uint WS_CAPTION = 0x00C00000;     // 标题栏
-        public const uint WS_BORDER = 0x00800000;     // 边框
-        public const uint WS_DLGFRAME = 0x00400000;     // 对话框边框
-        public const uint WS_THICKFRAME = 0x00040000;     // 可调整大小的边框 (Sizing Border)
+        public const uint WS_BORDER = 0x00800000;      // 边框
+        public const uint WS_DLGFRAME = 0x00400000;    // 对话框边框
+        public const uint WS_THICKFRAME = 0x00040000;  // 可调整大小的边框 (Sizing Border)
+        public const uint WS_MINIMIZEBOX = 0x00020000; // 最小化按钮
+        public const uint WS_MAXIMIZEBOX = 0x00010000; // 最大化按钮
+        public const uint WS_SYSMENU = 0x00080000;     // 系统菜单按钮
+
+        // --- 扩展窗口样式常量 (WS_EX_*) ---
+        public const uint WS_EX_DLGMODALFRAME = 0x00000001;  // 双边框窗口
+        public const uint WS_EX_TOPMOST = 0x00000008;       // 总在最前
+        public const uint WS_EX_ACCEPTFILES = 0x00000010;   // 接受拖放文件
+        public const uint WS_EX_TRANSPARENT = 0x00000020;   // 透明窗口
+        public const uint WS_EX_MDICHILD = 0x00000040;      // MDI子窗口
+        public const uint WS_EX_TOOLWINDOW = 0x00000080;    // 工具窗口
+        public const uint WS_EX_WINDOWEDGE = 0x00000100;    // 窗口边缘
+        public const uint WS_EX_CLIENTEDGE = 0x00000200;    // 客户区边缘
+        public const uint WS_EX_CONTEXTHELP = 0x00000400;   // 上下文帮助按钮
+        public const uint WS_EX_RIGHT = 0x00001000;         // 右对齐
+        public const uint WS_EX_RTLREADING = 0x00002000;    // 从右到左读取顺序
+        public const uint WS_EX_LEFTSCROLLBAR = 0x00004000; // 将滚动条放在左侧
+        public const uint WS_EX_CONTROLPARENT = 0x00010000; // 允许用户使用Tab键导航
+        public const uint WS_EX_STATICEDGE = 0x00020000;    // 三维边框
+        public const uint WS_EX_APPWINDOW = 0x00040000;     // 在任务栏上显示窗口
+        public const uint WS_EX_LAYERED = 0x00080000;       // 分层窗口
+        public const uint WS_EX_NOINHERITLAYOUT = 0x00100000; // 不继承布局
+        public const uint WS_EX_NOREDIRECTIONBITMAP = 0x00200000; // 不重定向位图
+        public const uint WS_EX_LAYOUTRTL = 0x00400000;     // 从右到左布局
+        public const uint WS_EX_COMPOSITED = 0x02000000;    // 复合窗口
+        public const uint WS_EX_NOACTIVATE = 0x08000000;    // 不激活窗口
+
+        // --- NCHITTEST 返回值 ---
+        public const int HTCLIENT = 1;      // 在客户区域
+        public const int HTCAPTION = 2;     // 在标题栏
+        public const int HTSYSMENU = 3;     // 在系统菜单
+        public const int HTGROWBOX = 4;     // 在大小调整框
+        public const int HTSIZE = 4;        // 与HTGROWBOX相同
+        public const int HTMENU = 5;        // 在菜单
+        public const int HTHSCROLL = 6;     // 在水平滚动条
+        public const int HTVSCROLL = 7;     // 在垂直滚动条
+        public const int HTMINBUTTON = 8;   // 在最小化按钮
+        public const int HTMAXBUTTON = 9;   // 在最大化按钮
+        public const int HTLEFT = 10;       // 在左边框
+        public const int HTRIGHT = 11;      // 在右边框
+        public const int HTTOP = 12;        // 在上边框
+        public const int HTTOPLEFT = 13;    // 在左上角
+        public const int HTTOPRIGHT = 14;   // 在右上角
+        public const int HTBOTTOM = 15;     // 在下边框
+        public const int HTBOTTOMLEFT = 16; // 在左下角
+        public const int HTBOTTOMRIGHT = 17;// 在右下角
+        public const int HTBORDER = 18;     // 在边框
 
         // --- Get/SetWindowLongPtr 索引 ---
         public const int GWL_STYLE = -16;             // 获取/设置窗口样式
@@ -588,5 +649,10 @@ namespace MusicBridge
                 Debug.WriteLine($"[ClickWindowAt] 异常: {ex}");
             }
         }
+
+        // 启用或禁用窗口
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool EnableWindow(IntPtr hWnd, bool bEnable);
     }
 }

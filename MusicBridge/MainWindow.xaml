@@ -22,15 +22,15 @@
                 <local:AppHost x:Name="AppHostControl"/>
                 
                 <!-- 操作区域叠加层，当无应用嵌入时显示 -->
-                <Border x:Name="OperationOverlay" Background="#FAFAFA" CornerRadius="5" Visibility="Visible">
+                <Border x:Name="OperationOverlay" Background="#FAFAFA" CornerRadius="5" Visibility="Visible" Panel.ZIndex="1">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock Text="请选择下方的音乐应用图标" FontSize="16" Margin="0,0,0,15" HorizontalAlignment="Center"/>
                         <TextBlock Text="点击图标自动启动并嵌入应用" FontSize="14" Margin="0,0,0,0" Foreground="#666666" HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Border>
                 
-                <!-- 新增：加载提示遮罩层，当应用正在启动和嵌入过程中显示 -->
-                <Border x:Name="LoadingOverlay" Background="#F5F5F5" Opacity="0.9" CornerRadius="5" Visibility="Collapsed">
+                <!-- 加载提示遮罩层，当应用正在启动和嵌入过程中显示，确保在操作区域叠加层之上 -->
+                <Border x:Name="LoadingOverlay" Background="#F5F5F5" Opacity="0.9" CornerRadius="5" Visibility="Collapsed" Panel.ZIndex="2">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock x:Name="LoadingText" Text="正在启动音乐应用，请稍候..." FontSize="16" Margin="0,0,0,20" HorizontalAlignment="Center"/>
                         <ProgressBar Width="200" Height="5" IsIndeterminate="True" Margin="0,0,0,15"/>

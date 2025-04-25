@@ -278,9 +278,20 @@ namespace MusicBridge.Utils
                     _loadingText.Text = $"正在启动 {appName}，请稍候...";
                 }
                 
+                // 强制性处理：确保加载遮罩层处于最顶层 (ZIndex)，操作区域叠加层不可见
                 _loadingOverlay.Visibility = Visibility.Visible;
-                _operationOverlay.Visibility = Visibility.Collapsed;
-                _appHost.Visibility = Visibility.Collapsed;
+                if (_operationOverlay != null)
+                {
+                    _operationOverlay.Visibility = Visibility.Collapsed;
+                    
+                    // 确保 ZIndex 设置正确
+                    Panel.SetZIndex(_loadingOverlay, 2);
+                    Panel.SetZIndex(_operationOverlay, 1);
+                }
+                if (_appHost != null)
+                {
+                    _appHost.Visibility = Visibility.Collapsed;
+                }
                 
                 Debug.WriteLine($"[UI状态] 显示加载提示: {appName}");
             }
@@ -299,18 +310,37 @@ namespace MusicBridge.Utils
             
             if (_loadingOverlay != null)
             {
+                // 首先隐藏加载遮罩层
                 _loadingOverlay.Visibility = Visibility.Collapsed;
                 
-                // 根据当前嵌入状态显示对应界面
-                if (_appHost.HostedAppWindowHandle != IntPtr.Zero)
+                // 只有当没有嵌入窗口时，才显示操作区域提示
+                // 避免在加载失败或快速切换时短暂显示操作区域提示
+                if (_appHost != null && _appHost.HostedAppWindowHandle != IntPtr.Zero)
                 {
-                    _operationOverlay.Visibility = Visibility.Collapsed;
-                    _appHost.Visibility = Visibility.Visible;
+                    if (_operationOverlay != null)
+                    {
+                        _operationOverlay.Visibility = Visibility.Collapsed;
+                    }
+                    if (_appHost != null)
+                    {
+                        _appHost.Visibility = Visibility.Visible;
+                    }
+                }
+                else if (!_isControllerRunning) // 只有当没有应用正在运行时，才显示操作区域提示
+                {
+                    if (_operationOverlay != null)
+                    {
+                        _operationOverlay.Visibility = Visibility.Visible;
+                    }
+                    if (_appHost != null)
+                    {
+                        _appHost.Visibility = Visibility.Collapsed;
+                    }
                 }
                 else
                 {
-                    _operationOverlay.Visibility = Visibility.Visible;
-                    _appHost.Visibility = Visibility.Collapsed;
+                    // 如果有应用正在运行但未嵌入，保持当前状态，避免闪烁
+                    Debug.WriteLine("[UI状态] 应用可能正在运行但未嵌入，保持当前状态以避免闪烁");
                 }
                 
                 Debug.WriteLine("[UI状态] 隐藏加载提示");
