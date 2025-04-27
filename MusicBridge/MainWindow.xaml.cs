@@ -432,7 +432,7 @@ namespace MusicBridge
         }
         
         /// <summary>
-        /// 确保嵌入窗口在弹出系统虚拟键盘后能获得输入焦点（多次尝试，提升输入成功率）
+        /// 确保嵌入窗口在弹出系统虚拟键盘后能获得输入焦点
         /// </summary>
         /// <param name="embeddedHwnd">嵌入窗口句柄</param>
         /// <param name="retryCount">尝试次数</param>

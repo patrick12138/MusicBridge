@@ -80,7 +80,7 @@ namespace MusicBridge
                                     if (File.Exists(potentialPath)) return potentialPath;
                                     // 有些应用的 InstallLocation 可能不包含子目录，需要额外尝试
                                     // 例如 酷狗的 InstallLocation 可能是 C:\Program Files (x86)\KuGou\, 需要拼接 KGMusic\KuGou.exe
-                                    // 这部分逻辑可以在子类中覆盖 FindPathFromRegistry() 来实现
+                                  
                                 }
                                 // 尝试从 DisplayIcon 提取路径
                                 if (displayIconObj != null && !string.IsNullOrWhiteSpace(displayIconObj.ToString()))
@@ -287,7 +287,7 @@ namespace MusicBridge
                 StringBuilder sb = new StringBuilder(length + 1);
                 WinAPI.GetWindowText(targetHwnd, sb, sb.Capacity);
                 string title = sb.ToString();
-                return CleanWindowTitle(title); // 使用辅助方法清理标题
+                return CleanWindowTitle(title);
             }
             return "无"; // 没有标题或获取失败
         }

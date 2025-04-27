@@ -337,112 +337,45 @@ namespace MusicBridge.Utils.Window
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool DestroyWindow(nint hwnd); // 销毁窗口 (用于 HwndHost)
 
-        [DllImport("user32.dll", SetLastError = true)]
-        public static extern nint FindWindowEx(nint hwndParent, nint hwndChildAfter, string lpszClass, string? lpszWindow);
-
         [DllImport("user32.dll")]
         public static extern nint SetFocus(nint hWnd);
 
-        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        public static extern int GetClassName(nint hWnd, StringBuilder lpClassName, int nMaxCount);
+        // 将消息发送到指定窗口的消息队列，然后立即返回（异步）
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool PostMessage(nint hWnd, int Msg, nint wParam, nint lParam);
+        
+        // 将虚拟键码映射到扫描码
+        [DllImport("user32.dll")]
+        public static extern uint MapVirtualKey(uint uCode, uint uMapType);
 
+        // --- 鼠标相关常量 ---
+        public const uint INPUT_MOUSE = 0;
+        public const uint MOUSEEVENTF_MOVE = 0x0001;
+        public const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
+        public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        public const uint MOUSEEVENTF_LEFTUP = 0x0004;
+        
+        // --- 系统信息常量 ---
+        public const int SM_CXSCREEN = 0;
+        public const int SM_CYSCREEN = 1;
+        
+        // --- 窗口和客户区矩形相关 ---
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+        
+        [DllImport("user32.dll")]
+        public static extern bool GetWindowRect(nint hWnd, ref RECT lpRect);
+        
+        // 添加 SetForegroundWindow 函数声明
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool EnumChildWindows(nint hwndParent, EnumWindowsProc lpEnumFunc, nint lParam);
-        [DllImport("user32.dll")]
-        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, nuint dwExtraInfo);
-
-        // 获取当前拥有键盘焦点的窗口句柄
-        [DllImport("user32.dll")]
-        public static extern nint GetFocus();
-
-        // 获取指定窗口的父窗口句柄
-        [DllImport("user32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
-        public static extern nint GetParent(nint hWnd);
-
-        /// <summary>
-        /// 异步模拟单个按键的按下和抬起。
-        /// </summary>
-        /// <param name="vkCode">要模拟的虚拟键码。</param>
-        public static async Task SendKeyPressAsync(byte vkCode)
-        {
-            keybd_event(vkCode, 0, KEYEVENTF_EXTENDEDKEY, nuint.Zero); // 按下
-            await Task.Delay(30); // 模拟短暂按住
-            keybd_event(vkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, nuint.Zero); // 抬起
-        }
-
-        /// <summary>
-        /// 异步模拟组合键 (例如 Ctrl+Right)。
-        /// </summary>
-        /// <param name="modifierVkCode">修饰键的虚拟键码 (例如 VK_CONTROL)。</param>
-        /// <param name="vkCode">普通键的虚拟键码 (例如 VK_RIGHT)。</param>
-        public static async Task SendCombinedKeyPressAsync(byte modifierVkCode, byte vkCode)
-        {
-            keybd_event(modifierVkCode, 0, KEYEVENTF_EXTENDEDKEY, nuint.Zero); // 按下修饰键
-            await Task.Delay(30);
-            keybd_event(vkCode, 0, KEYEVENTF_EXTENDEDKEY, nuint.Zero);         // 按下普通键
-            await Task.Delay(30);
-            keybd_event(vkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, nuint.Zero); // 抬起普通键
-            await Task.Delay(30);
-            keybd_event(modifierVkCode, 0, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, nuint.Zero); // 抬起修饰键
-        }
-
-        // --- 新增：使用 SendInput 模拟组合键 --- 
-        public static async Task SimulateKeyPressWithModifiers(List<ushort> modifierKeys, ushort primaryKey)
-        {
-            List<INPUT> inputs = new List<INPUT>();
-            nint extraInfo = GetMessageExtraInfo();
-
-            // 1. 按下所有修饰键
-            foreach (var modKey in modifierKeys)
-            {
-                inputs.Add(new INPUT
-                {
-                    type = INPUT_KEYBOARD,
-                    u = new INPUT_UNION { ki = new KEYBDINPUT { wVk = modKey, dwFlags = KEYEVENTF_KEYDOWN, dwExtraInfo = extraInfo } }
-                });
-            }
-
-            // 2. 按下主键
-            inputs.Add(new INPUT
-            {
-                type = INPUT_KEYBOARD,
-                u = new INPUT_UNION { ki = new KEYBDINPUT { wVk = primaryKey, dwFlags = KEYEVENTF_KEYDOWN, dwExtraInfo = extraInfo } }
-            });
-
-            // 3. 释放主键
-            inputs.Add(new INPUT
-            {
-                type = INPUT_KEYBOARD,
-                u = new INPUT_UNION { ki = new KEYBDINPUT { wVk = primaryKey, dwFlags = KEYEVENTF_KEYUP, dwExtraInfo = extraInfo } }
-            });
-
-            // 4. 释放所有修饰键 (按相反顺序释放可能更稳妥)
-            modifierKeys.Reverse(); // 反转列表
-            foreach (var modKey in modifierKeys)
-            {
-                inputs.Add(new INPUT
-                {
-                    type = INPUT_KEYBOARD,
-                    u = new INPUT_UNION { ki = new KEYBDINPUT { wVk = modKey, dwFlags = KEYEVENTF_KEYUP, dwExtraInfo = extraInfo } }
-                });
-            }
-
-            // 发送输入
-            uint result = SendInput((uint)inputs.Count, inputs.ToArray(), Marshal.SizeOf(typeof(INPUT)));
-            if (result == 0)
-            {
-                int errorCode = Marshal.GetLastWin32Error();
-                Debug.WriteLine($"[SimulateKeyPressWithModifiers] SendInput failed with error code: {errorCode}");
-                // 可以考虑抛出异常或返回 false
-            }
-            else
-            {
-                Debug.WriteLine($"[SimulateKeyPressWithModifiers] SendInput succeeded for primary key {primaryKey} with {modifierKeys.Count} modifiers.");
-            }
-            // SendInput 是同步的，但我们保持 async Task 签名以防未来需要延迟
-            await Task.CompletedTask; 
-        }
+        public static extern bool SetForegroundWindow(nint hWnd);
 
         // 查找主窗口方法 (保持不变，用于初始查找)
         public static nint FindMainWindow(string processName)
@@ -484,175 +417,5 @@ namespace MusicBridge.Utils.Window
             if (potentialHwnds.Count == 1) return potentialHwnds[0];
             return nint.Zero;
         }
-
-        // 将消息发送到指定窗口的消息队列，然后立即返回（异步）
-        [DllImport("user32.dll", SetLastError = true)]
-        public static extern bool PostMessage(nint hWnd, int Msg, nint wParam, nint lParam);
-        
-        // 将虚拟键码映射到扫描码
-        [DllImport("user32.dll")]
-        public static extern uint MapVirtualKey(uint uCode, uint uMapType);
-
-        // --- 鼠标相关常量 ---
-        public const uint INPUT_MOUSE = 0;
-        public const uint MOUSEEVENTF_MOVE = 0x0001;
-        public const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
-        public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
-        public const uint MOUSEEVENTF_LEFTUP = 0x0004;
-        
-        // --- 系统信息常量 ---
-        public const int SM_CXSCREEN = 0;
-        public const int SM_CYSCREEN = 1;
-        
-        // --- 窗口和客户区矩形相关 ---
-        [StructLayout(LayoutKind.Sequential)]
-        public struct RECT
-        {
-            public int Left;
-            public int Top;
-            public int Right;
-            public int Bottom;
-        }
-        
-        [StructLayout(LayoutKind.Sequential)]
-        public struct POINT
-        {
-            public int X;
-            public int Y;
-        }
-        
-        [DllImport("user32.dll")]
-        public static extern bool GetWindowRect(nint hWnd, ref RECT lpRect);
-        
-        [DllImport("user32.dll")]
-        public static extern bool GetClientRect(nint hWnd, ref RECT lpRect);
-        
-        [DllImport("user32.dll")]
-        public static extern bool ClientToScreen(nint hWnd, ref POINT lpPoint);
-        
-        [DllImport("user32.dll")]
-        public static extern int GetSystemMetrics(int nIndex);
-
-        // 添加 SetForegroundWindow 函数声明
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool SetForegroundWindow(nint hWnd);
-        
-        // 向指定窗口发送按键序列
-        public static void SendKeys(nint hWnd, string keys)
-        {
-            // 确保窗口处于前台
-            SetForegroundWindow(hWnd);
-            Thread.Sleep(100); // 给系统一点时间响应
-           
-        }
-
-        // 添加 ClickWindowAt 方法 - 点击窗口的指定位置
-        public static void ClickWindowAt(nint hWnd, int x, int y)
-        {
-            try
-            {
-                // 确保窗口处于前台
-                SetForegroundWindow(hWnd);
-                Thread.Sleep(50);
-
-                // 获取窗口客户区域在屏幕上的坐标
-                RECT rect = new RECT();
-                GetClientRect(hWnd, ref rect);
-                
-                POINT point = new POINT { X = 0, Y = 0 };
-                ClientToScreen(hWnd, ref point);
-                
-                // 计算实际要点击的屏幕坐标
-                int screenX = point.X + x;
-                int screenY = point.Y + y;
-                
-                // 获取屏幕分辨率
-                int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-                int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-                
-                // 将坐标转换为规范化坐标 (0-65535)
-                int normalizedX = screenX * 65535 / screenWidth;
-                int normalizedY = screenY * 65535 / screenHeight;
-                
-                // 准备输入
-                INPUT[] inputs = new INPUT[3];
-                
-                // 1. 移动鼠标到目标位置
-                inputs[0] = new INPUT
-                {
-                    type = INPUT_MOUSE,
-                    u = new INPUT_UNION
-                    {
-                        mi = new MOUSEINPUT
-                        {
-                            dx = normalizedX,
-                            dy = normalizedY,
-                            mouseData = 0,
-                            dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
-                            time = 0,
-                            dwExtraInfo = GetMessageExtraInfo()
-                        }
-                    }
-                };
-                
-                // 2. 鼠标左键按下
-                inputs[1] = new INPUT
-                {
-                    type = INPUT_MOUSE,
-                    u = new INPUT_UNION
-                    {
-                        mi = new MOUSEINPUT
-                        {
-                            dx = 0,
-                            dy = 0,
-                            mouseData = 0,
-                            dwFlags = MOUSEEVENTF_LEFTDOWN,
-                            time = 0,
-                            dwExtraInfo = GetMessageExtraInfo()
-                        }
-                    }
-                };
-                
-                // 3. 鼠标左键抬起
-                inputs[2] = new INPUT
-                {
-                    type = INPUT_MOUSE,
-                    u = new INPUT_UNION
-                    {
-                        mi = new MOUSEINPUT
-                        {
-                            dx = 0,
-                            dy = 0,
-                            mouseData = 0,
-                            dwFlags = MOUSEEVENTF_LEFTUP,
-                            time = 0,
-                            dwExtraInfo = GetMessageExtraInfo()
-                        }
-                    }
-                };
-                
-                // 发送输入
-                uint result = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
-                if (result == 0)
-                {
-                    int errorCode = Marshal.GetLastWin32Error();
-                    Debug.WriteLine($"[ClickWindowAt] SendInput 失败，错误代码: {errorCode}");
-                }
-                else
-                {
-                    Debug.WriteLine($"[ClickWindowAt] 成功点击位置 ({x}, {y})");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ClickWindowAt] 异常: {ex}");
-            }
-        }
-
-        // 启用或禁用窗口
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool EnableWindow(nint hWnd, bool bEnable);
     }
 }

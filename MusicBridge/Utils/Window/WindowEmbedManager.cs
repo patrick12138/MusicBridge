@@ -1,8 +1,6 @@
 using MusicBridge.Controllers;
 using MusicBridge.Utils.UI;
-using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 
@@ -147,9 +145,6 @@ namespace MusicBridge.Utils.Window
             }
         }
         
-        /// <summary>
-        /// Detaches the currently embedded window
-        /// </summary>
         public void DetachEmbeddedWindow()
         {
             if (!_dispatcher.CheckAccess())
@@ -204,8 +199,6 @@ namespace MusicBridge.Utils.Window
             if (success)
             {
                 _embeddedWindowHandle = hwnd; // 记录嵌入的句柄
-                // --- 注意：这里无法直接设置 AppHost.CurrentController，因为它不知道是哪个 Controller ---
-                // --- 需要在调用 EmbedExistingWindow 的地方 (MainWindow.xaml.cs) 设置 ---
                 _updateStatus("窗口已重新嵌入。");
                 return true;
             }
