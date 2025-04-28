@@ -30,7 +30,7 @@
                 </Border>
                 
                 <!-- 加载提示遮罩层 -->
-                <Border x:Name="LoadingOverlay" Background="#F5F5F5" Opacity="0.9" CornerRadius="5" Visibility="Collapsed" Panel.ZIndex="2">
+                <Border x:Name="LoadingOverlay" Background="#F5F5F5" CornerRadius="5" Visibility="Collapsed" Panel.ZIndex="3">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock x:Name="LoadingText" Text="正在启动音乐应用，请稍候..." FontSize="16" Margin="0,0,0,20" HorizontalAlignment="Center"/>
                         <ProgressBar Width="200" Height="5" IsIndeterminate="True" Margin="0,0,0,15"/>
@@ -40,7 +40,7 @@
                 </Border>
                 
                 <!-- 关闭提示遮罩层，当应用正在关闭过程中显示 -->
-                <Border x:Name="ClosingOverlay" Background="#F5F5F5" Opacity="0.9" CornerRadius="5" Visibility="Collapsed" Panel.ZIndex="2">
+                <Border x:Name="ClosingOverlay" Background="#F5F5F5" CornerRadius="5" Visibility="Collapsed" Panel.ZIndex="3">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock x:Name="ClosingText" Text="正在关闭音乐应用，请稍候..." FontSize="16" Margin="0,0,0,20" HorizontalAlignment="Center"/>
                         <ProgressBar Width="200" Height="5" IsIndeterminate="True" Margin="0,0,0,15"/>
