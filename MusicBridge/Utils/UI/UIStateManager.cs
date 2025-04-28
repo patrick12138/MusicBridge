@@ -27,9 +27,11 @@ namespace MusicBridge.Utils.UI
         private readonly FrameworkElement _operationOverlay;
         private readonly AppHost _appHost;
         
-        // 新增: 加载提示相关的控件引用
+        // 新增: 加载和关闭提示相关的控件引用
         private FrameworkElement _loadingOverlay;
         private TextBlock _loadingText;
+        private FrameworkElement _closingOverlay;
+        private TextBlock _closingText;
         
         // 记录应用状态，用于重新嵌入功能
         private bool _isControllerRunning = false;
@@ -69,7 +71,7 @@ namespace MusicBridge.Utils.UI
             _operationOverlay = operationOverlay;
             _appHost = appHost;
             
-            // 查找重新嵌入按钮（通过 MainWindow 中的 FindName 查找）
+            // 查找重新嵌入按钮和提示相关的控件（通过 MainWindow 中的 FindName 查找）
             if (_detachButton != null && _detachButton.Parent is UIElement parent)
             {
                 var window = System.Windows.Window.GetWindow(parent);
@@ -78,6 +80,8 @@ namespace MusicBridge.Utils.UI
                     _reEmbedButton = window.FindName("ReEmbedButton") as Button;
                     _loadingOverlay = window.FindName("LoadingOverlay") as FrameworkElement;
                     _loadingText = window.FindName("LoadingText") as TextBlock;
+                    _closingOverlay = window.FindName("ClosingOverlay") as FrameworkElement;
+                    _closingText = window.FindName("ClosingText") as TextBlock;
                 }
             }
         }
@@ -340,6 +344,93 @@ namespace MusicBridge.Utils.UI
                 }
                 
                 Debug.WriteLine("[UI状态] 隐藏加载提示");
+            }
+        }
+        
+        /// <summary>
+        /// 显示应用关闭等待提示
+        /// </summary>
+        /// <param name="appName">应用名称</param>
+        public void ShowClosingOverlay(string appName)
+        {
+            if (!_dispatcher.CheckAccess())
+            {
+                _dispatcher.InvokeAsync(() => ShowClosingOverlay(appName));
+                return;
+            }
+            
+            if (_closingOverlay != null)
+            {
+                if (_closingText != null)
+                {
+                    _closingText.Text = $"正在关闭 {appName}，请稍候...";
+                }
+                
+                // 强制性处理：确保关闭遮罩层处于最顶层 (ZIndex)，操作区域叠加层不可见
+                _closingOverlay.Visibility = Visibility.Visible;
+                if (_operationOverlay != null)
+                {
+                    _operationOverlay.Visibility = Visibility.Collapsed;
+                    
+                    // 确保 ZIndex 设置正确
+                    Panel.SetZIndex(_closingOverlay, 2);
+                    Panel.SetZIndex(_operationOverlay, 1);
+                }
+                if (_appHost != null)
+                {
+                    _appHost.Visibility = Visibility.Collapsed;
+                }
+                
+                Debug.WriteLine($"[UI状态] 显示关闭提示: {appName}");
+            }
+        }
+        
+        /// <summary>
+        /// 隐藏应用关闭等待提示
+        /// </summary>
+        public void HideClosingOverlay()
+        {
+            if (!_dispatcher.CheckAccess())
+            {
+                _dispatcher.InvokeAsync(HideClosingOverlay);
+                return;
+            }
+            
+            if (_closingOverlay != null)
+            {
+                // 首先隐藏关闭遮罩层
+                _closingOverlay.Visibility = Visibility.Collapsed;
+                
+                // 只有当没有嵌入窗口且没有应用运行时，才显示操作区域提示
+                if (_appHost != null && _appHost.HostedAppWindowHandle != nint.Zero)
+                {
+                    if (_operationOverlay != null)
+                    {
+                        _operationOverlay.Visibility = Visibility.Collapsed;
+                    }
+                    if (_appHost != null)
+                    {
+                        _appHost.Visibility = Visibility.Visible;
+                    }
+                }
+                else if (!_isControllerRunning) // 只有当没有应用正在运行时，才显示操作区域提示
+                {
+                    if (_operationOverlay != null)
+                    {
+                        _operationOverlay.Visibility = Visibility.Visible;
+                    }
+                    if (_appHost != null)
+                    {
+                        _appHost.Visibility = Visibility.Collapsed;
+                    }
+                }
+                else
+                {
+                    // 如果有应用正在运行但未嵌入，保持当前状态，避免闪烁
+                    Debug.WriteLine("[UI状态] 应用可能正在运行但未嵌入，保持当前状态以避免闪烁");
+                }
+                
+                Debug.WriteLine("[UI状态] 隐藏关闭提示");
             }
         }
     }

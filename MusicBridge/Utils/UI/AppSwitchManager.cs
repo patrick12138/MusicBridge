@@ -15,6 +15,7 @@ namespace MusicBridge.Utils.UI
         private readonly Dispatcher _dispatcher;
         private readonly Action<string> _updateStatus;
         private readonly WindowEmbedManager _windowEmbedManager;
+        private readonly UIStateManager _uiStateManager;
 
         
         private IMusicApp _currentController;
@@ -23,15 +24,16 @@ namespace MusicBridge.Utils.UI
         /// 创建应用切换管理器实例
         /// </summary>
         public AppSwitchManager(
-            Dispatcher dispatcher, 
-            Action<string> updateStatus, 
-            WindowEmbedManager windowEmbedManager
+            Dispatcher dispatcher,
+            Action<string> updateStatus,
+            WindowEmbedManager windowEmbedManager,
+            UIStateManager uiStateManager
             )
         {
             _dispatcher = dispatcher;
             _updateStatus = updateStatus;
             _windowEmbedManager = windowEmbedManager;
-           
+            _uiStateManager = uiStateManager;
         }
 
         /// <summary>
@@ -132,11 +134,18 @@ namespace MusicBridge.Utils.UI
                 // 如果应用正在运行，关闭它
                 if (_currentController.IsRunning())
                 {
-                   await _currentController.CloseAppAsync();
+                    // 显示关闭进度条
+                    _uiStateManager.ShowClosingOverlay(_currentController.Name);
+                    _dispatcher.Invoke(() => _updateStatus($"正在关闭 {_currentController.Name}..."));
+                    
+                    await _currentController.CloseAppAsync();
                     _updateStatus($"已关闭 {_currentController.Name}");
                     
                     // 等待进程确实关闭
                     await Task.Delay(500);
+                    
+                    // 隐藏关闭进度条
+                    _uiStateManager.HideClosingOverlay();
                     return true;
                 }
                 
@@ -146,6 +155,7 @@ namespace MusicBridge.Utils.UI
             {
                 Debug.WriteLine($"[AppSwitchManager.CloseCurrentAppAsync] 错误: {ex}");
                 _updateStatus($"关闭当前应用时出错: {ex.Message}");
+                _uiStateManager.HideClosingOverlay();
                 return false;
             }
         }

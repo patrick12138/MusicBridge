@@ -3,6 +3,7 @@ using MusicBridge.Utils.UI;
 using MusicBridge.Utils.Window;
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -66,7 +67,8 @@ namespace MusicBridge
             _appSwitchManager = new AppSwitchManager(
                 Dispatcher,
                 _uiStateManager.UpdateStatus,
-                _windowEmbedManager
+                _windowEmbedManager,
+                _uiStateManager
                 );
 
             // --- 初始化控制器列表 ---
@@ -87,10 +89,13 @@ namespace MusicBridge
                 this.Closing += MainWindow_Closing;
                 // 窗口加载后执行初始操作
                 Loaded += MainWindow_Loaded;
-
+    
                 // 初始化时隐藏 AppHost，显示操作区叠加层
                 AppHostControl.Visibility = Visibility.Collapsed;
                 OperationOverlay.Visibility = Visibility.Visible;
+    
+                // 初始化ClosingOverlay
+                ClosingOverlay = FindName("ClosingOverlay") as Border;
             }
             catch (Exception ex)
             {
@@ -367,7 +372,7 @@ namespace MusicBridge
                 return; // 取消关闭操作
             }
 
-            // 使用应用切换管理器关闭当前应用
+            // 使用应用切换管理器关闭当前应用，进度条显示逻辑在AppSwitchManager中处理
             await _appSwitchManager.CloseCurrentAppAsync();
             
             // 清除当前图标选择
